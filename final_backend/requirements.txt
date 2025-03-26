@@ -2,7 +2,7 @@ langchain
 langchain_groq
 agno
 dotenv
-tavily
+tavily-python
 typing
 rich
 streamlit
