@@ -407,7 +407,7 @@ class DeepResearch:
 deep_research = DeepResearch()
 
 if __name__ == "__main__":
-    with (open('../docs/query.md', 'r')) as f:
+    with (open('./docs/query.md', 'r')) as f:
         query = f.readline()
     start_time = time.time()
     result = deep_research.research(query)
@@ -418,5 +418,5 @@ if __name__ == "__main__":
     console.print(Markdown(colored("\n=== Final Research Answer ===\n",
                                    "green", attrs=["bold"])))
     console.print(Markdown(result["answer"]))
-    with open('../docs/outputs.md', 'a') as f:
+    with open('./docs/outputs.md', 'a') as f:
         f.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" + result["answer"])

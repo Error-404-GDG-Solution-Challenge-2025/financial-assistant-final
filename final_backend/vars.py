@@ -1,6 +1,8 @@
 # vars.py
 
 from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+from agno.models.groq.groq import Groq
 
 load_dotenv()
 
@@ -74,7 +76,6 @@ def get_llm_provider(model_id, framework="agno"):
     else:
         if framework == "agno":
             # Assuming Groq for remote, add others (Gemini, OpenAI) if needed
-            from agno.models.groq.groq import Groq
             import os
             print(f"Using remote Groq model: {model_id}")
             api_key = os.environ.get('GROQ_API_KEY')
@@ -82,5 +83,4 @@ def get_llm_provider(model_id, framework="agno"):
                 raise ValueError("GROQ_API_KEY not found in environment variables.")
             return Groq(id=model_id, temperature=0)
         if framework == "langchain":
-            from langchain_groq import ChatGroq
             return ChatGroq(model=model_id, temperature=0)
