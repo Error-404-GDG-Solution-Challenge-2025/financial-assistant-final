@@ -16,4 +16,3 @@ langchain_core
 pydantic
 yfinance
 pysqlite3-binary
-sqlite3==3.35.0
