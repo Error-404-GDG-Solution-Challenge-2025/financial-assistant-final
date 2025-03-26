@@ -16,3 +16,4 @@ langchain_core
 pydantic
 yfinance
 pysqlite3-binary
+chromadb==3.35.0
