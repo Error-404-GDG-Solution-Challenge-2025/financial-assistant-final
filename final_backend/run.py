@@ -116,6 +116,7 @@ def process_query_flow(query: str, memory: ConversationBufferMemory, deep_search
 
     # === 2. RAG Retrieval ===
     retrieved_docs_content = "No documents found or knowledge base unavailable."
+    retrieved_docs = None
     if knowledge_base:
         try:
             print(colored("Attempting RAG retrieval...", "cyan"))
