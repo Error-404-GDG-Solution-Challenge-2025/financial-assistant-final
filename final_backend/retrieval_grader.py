@@ -23,35 +23,26 @@ grading_llm = get_llm_provider(get_llm_id("remote"), "langchain")
 
 # Improved Prompt for Retrieval Grading
 prompt_for_retrieval_grading = PromptTemplate(
-    template="""You are a strict relevance grader. You will evaluate if the provided FACT contains information that DIRECTLY and SPECIFICALLY answers the given QUESTION.
+    template="""You are a teacher grading a quiz. You will be given: 
+    1/ a QUESTION
+    2/ A FACT provided by the student
+    
+    You are grading RELEVANCE RECALL:
+    A score of 1 means that ANY of the statements in the FACT are relevant to the QUESTION. 
+    A score of 0 means that NONE of the statements in the FACT are relevant to the QUESTION OR/AND the QUESTION is asking for realtime information. 
+    1 is the highest (best) score. 0 is the lowest score you can give. 
+    
+    NOTE that if the question is asking about realtime information, the fact may not be relevant.
 
-    **Evaluation Criteria:**
-
-    1.  **Direct Relevance:** Does the FACT contain statements that directly address the core subject of the QUESTION?
-    2.  **Specificity:** Does the FACT provide specific details relevant to the QUESTION, or is it too general?
-    3.  **Real-time Data Need:** Does the QUESTION explicitly or implicitly ask for *current*, time-sensitive information (e.g., "What is the stock price *now*?", "latest news", "current market cap")?
-        *   If the QUESTION needs real-time data, and the FACT only contains general, historical, or outdated information, the FACT is NOT relevant (Score 0).
-
-    **Scoring:**
-
-    *   **Score 1 (Relevant):** The FACT contains specific information that directly addresses the main point of the QUESTION. If the question requires real-time data, the fact *must* contain plausible real-time data points (even if simulated in this context).
-    *   **Score 0 (Not Relevant):** NONE of the statements in the FACT directly and specifically address the QUESTION, OR the QUESTION requires real-time data that the FACT clearly lacks.
-
-    **Instructions:**
-
-    1.  Analyze the QUESTION to understand its core intent and whether it requires real-time data.
-    2.  Analyze the FACT to see if it contains directly relevant and specific information.
-    3.  Compare the FACT against the QUESTION based on the criteria above.
-    4.  Provide a step-by-step reasoning for your decision (internal thought process, not for the final output).
-    5.  Output *only* a JSON object with a single key 'score' and a value of either 1 or 0. Do not include any preamble, explanation, or markdown formatting in the final JSON output.
-
-    **QUESTION:**
-    {question}
-
-    **FACT:**
-    {documents}
-
-    **JSON Output:**
+    Explain your reasoning in a step-by-step manner. Ensure your reasoning and conclusion are correct. 
+    
+    Avoid simply stating the correct answer at the outset.
+    
+    Question: {question} \n
+    Fact: \n\n {documents} \n\n
+    
+    Give a binary score '1' or '0' score to indicate whether the document is relevant to the question. \n
+    Provide the binary score as a JSON with a single key 'score' and no premable or explanation.
     """,
     input_variables=["question", "documents"],
 )

@@ -25,7 +25,7 @@ REASONING_LLM_LOCAL = "llama3:70b" # Or a fine-tuned reasoning model
 
 # Model specifically for reliable tool calling (if different from REMOTE_LLM)
 # Some models are better fine-tuned for function/tool calling.
-TOOL_CALL_LLM_REMOTE = "llama3-70b-8192" # Often the main model works well if prompted correctly
+TOOL_CALL_LLM_REMOTE = "qwen-2.5-coder-32b" # Often the main model works well if prompted correctly
 TOOL_CALL_LLM_LOCAL = "llama3:70b"
 
 # --- Deep Research Parameters ---
