@@ -42,6 +42,17 @@ class DeepResearch:
         self.max_depth = max_depth
         self.max_search_calls = max_search_calls
         self.search_calls_made = 0  # Track calls across the research process
+        self.debug_log = []  # Store debug logs
+        self.user_prompt = ""
+    def _log(self, message, color=None, attrs=None):
+        """Log a message to both console and debug log."""
+        if color:
+            colored_msg = colored(message, color, attrs=attrs)
+            print(colored_msg)
+        else:
+            print(message)
+        # Store the original message without color formatting
+        self.debug_log.append(message)
 
     def _parse_subquestions(self, response_content: str, num_questions: int) -> List[str]:
         """Robustly parse numbered list of subquestions from LLM response."""
@@ -75,9 +86,11 @@ class DeepResearch:
     def _generate_subquestions(self, query: str, num_questions=NUM_SUBQUESTIONS) -> List[str]:
         """Break down a complex query into simpler, distinct, researchable subquestions."""
         agent = Agent(
-            model=self.reasoning_model,
+            model=self.analysis_model,
             description="You are an expert research planner. Your goal is to break down a main question into specific, answerable subquestions.",
         )
+
+        self.user_prompt = query
 
         prompt = f"""
         You need to research the following complex topic: "{query}"
@@ -110,19 +123,18 @@ class DeepResearch:
 
             subquestions = self._parse_subquestions(content, num_questions)
 
-            print(
-                colored(f"Generated {len(subquestions)} subquestions:", "cyan"))
+            self._log(f"Generated {len(subquestions)} subquestions:", "cyan")
             for idx, q in enumerate(subquestions):
-                print(colored(f"  {idx+1}. {q}", "yellow"))
+                self._log(f"  {idx+1}. {q}", "yellow")
             return subquestions
 
         except Exception as e:
-            print(colored(f"Error generating subquestions: {e}", "red"))
+            self._log(f"Error generating subquestions: {e}", "red")
             return []  # Return empty list on error
 
     def _should_decompose(self, subquestion: str, context: str) -> bool:
         """Decide if a subquestion needs further decomposition based on initial findings."""
-        agent = Agent(model=self.reasoning_model)
+        agent = Agent(model=self.analysis_model)
         prompt = f"""
         Consider the subquestion: "{subquestion}"
         Initial research provided this context:
@@ -140,17 +152,17 @@ class DeepResearch:
             response = agent.run(prompt)
             return "YES" in response.content.upper()
         except Exception as e:
-            print(colored(f"Error checking decomposition: {e}", "red"))
+            self._log(f"Error checking decomposition: {e}", "red")
             return False  # Default to no decomposition on error
 
     def _research_subquestion(self, subquestion: str, depth=0) -> Dict[str, Any]:
         """Research a specific subquestion using Tavily, YFinance, and potential decomposition."""
-        print(
-            colored(f"\n{'  ' * depth}Researching (Depth {depth}): {subquestion}", "green"))
+        self._log(
+            f"\n{'  ' * depth}Researching (Depth {depth}): {subquestion}", "green")
 
         if self.search_calls_made >= self.max_search_calls:
-            print(colored(
-                f"{'  ' * depth}Skipping research: Max search calls ({self.max_search_calls}) reached.", "red"))
+            self._log(
+                f"{'  ' * depth}Skipping research: Max search calls ({self.max_search_calls}) reached.", "red")
             return {
                 "subquestion": subquestion, "summary": "Max search calls reached.",
                 "search_results": None, "context": "", "additional_info": {}
@@ -174,14 +186,15 @@ class DeepResearch:
         
         Answer with only YES or NO.
         """
-        
+
         try:
             relevance_response = agent.run(relevance_prompt)
             is_yfinance_relevant = "YES" in relevance_response.content.upper()
-            
+
             if is_yfinance_relevant:
-                print(colored(f"{'  ' * depth}YFinance determined to be relevant for: {subquestion}", "blue"))
-                
+                self._log(
+                    f"{'  ' * depth}YFinance determined to be relevant for: {subquestion}", "blue")
+
                 # Create an agent with YFinance tools
                 yf_agent = Agent(
                     model=self.reasoning_model,
@@ -189,28 +202,33 @@ class DeepResearch:
                     show_tool_calls=True,
                     markdown=True,
                 )
-                
+
                 # Run the agent with the subquestion
                 try:
                     yf_response = yf_agent.run(subquestion)
                     yf_output = yf_response.content
                     if yf_output.startswith("404 Client Error:"):
-                        print(colored(f"{'  ' * depth}YFinance returned 404 error for: {subquestion}\n\n Falling back to Tavily", "red"))
+                        self._log(
+                            f"{'  ' * depth}YFinance returned 404 error for: {subquestion}\n\n Falling back to Tavily", "red")
                         raise Exception("YFinance returned 404 error")
 
                     # Store output in context
                     tool_outputs["yfinance_data"] = yf_output
                     context += f"\nYFinance Tool Output:\n{yf_output}\n"
-                    
+
                     # Print debug information
-                    print(colored(f"{'  ' * depth}YFinance Output: {yf_output}...", "magenta"))
+                    self._log(
+                        f"{'  ' * depth}YFinance Output: {yf_output}...", "magenta")
                     self.search_calls_made += 1
                 except Exception as e:
-                    print(colored(f"{'  ' * depth}YFinance agent failed: {e}", "red"))
+                    self._log(
+                        f"{'  ' * depth}YFinance agent failed: {e}", "red")
             else:
-                print(colored(f"{'  ' * depth}YFinance determined not relevant for this query.", "yellow"))
+                self._log(
+                    f"{'  ' * depth}YFinance determined not relevant for this query.", "yellow")
         except Exception as e:
-            print(colored(f"{'  ' * depth}Error determining YFinance relevance: {e}", "red"))
+            self._log(
+                f"{'  ' * depth}Error determining YFinance relevance: {e}", "red")
             try:
                 search_results = tavily_client.search(
                     query=subquestion, search_depth="advanced", max_results=5)
@@ -219,20 +237,19 @@ class DeepResearch:
                     context += "\nWeb Search Results:\n" + \
                         "\n\n".join(
                             [f"Source: {r.get('url', 'N/A')}\nContent: {r.get('content', '')}" for r in search_results["results"]])
-                    print(
-                        colored(f"{'  ' * depth}Tavily search successful.", "magenta"))
+                    self._log(
+                        f"{'  ' * depth}Tavily search successful.", "magenta")
                 else:
-                    print(
-                        colored(f"{'  ' * depth}Tavily search returned no results.", "yellow"))
+                    self._log(
+                        f"{'  ' * depth}Tavily search returned no results.", "yellow")
             except Exception as e:
-                print(
-                    colored(f"{'  ' * depth}Tavily search failed: {e}", "red"))
+                self._log(f"{'  ' * depth}Tavily search failed: {e}", "red")
                 context += "\nWeb search failed."
 
         # --- Tavily Web Search ---
         if self.search_calls_made < self.max_search_calls:
-            print(
-                colored(f"{'  ' * depth}Performing Tavily search for: {subquestion}", "blue"))
+            self._log(
+                f"{'  ' * depth}Performing Tavily search for: {subquestion}", "blue")
             try:
                 search_results = tavily_client.search(
                     query=subquestion, search_depth="advanced", max_results=5)
@@ -241,26 +258,25 @@ class DeepResearch:
                     context += "\nWeb Search Results:\n" + \
                         "\n\n".join(
                             [f"Source: {r.get('url', 'N/A')}\nContent: {r.get('content', '')}" for r in search_results["results"]])
-                    print(
-                        colored(f"{'  ' * depth}Tavily search successful.", "magenta"))
+                    self._log(
+                        f"{'  ' * depth}Tavily search successful.", "magenta")
                 else:
-                    print(
-                        colored(f"{'  ' * depth}Tavily search returned no results.", "yellow"))
+                    self._log(
+                        f"{'  ' * depth}Tavily search returned no results.", "yellow")
             except Exception as e:
-                print(
-                    colored(f"{'  ' * depth}Tavily search failed: {e}", "red"))
+                self._log(f"{'  ' * depth}Tavily search failed: {e}", "red")
                 context += "\nWeb search failed."
         else:
-            print(colored(
-                f"{'  ' * depth}Skipping Tavily search: Max search calls reached.", "red"))
+            self._log(
+                f"{'  ' * depth}Skipping Tavily search: Max search calls reached.", "red")
 
         # --- Recursive Decomposition ---
         additional_info = {}
         if depth < self.max_depth and self.search_calls_made < self.max_search_calls:
             # Check for decomposition *after* initial search/tool use
             if self._should_decompose(subquestion, context):
-                print(
-                    colored(f"{'  ' * depth}Further decomposing: {subquestion}", "magenta"))
+                self._log(
+                    f"{'  ' * depth}Further decomposing: {subquestion}", "magenta")
                 # Generate fewer sub-subquestions to control complexity
                 sub_subquestions = self._generate_subquestions(
                     subquestion, num_questions=2)
@@ -273,8 +289,8 @@ class DeepResearch:
                     sub_findings[sub_sq] = sub_result
                 additional_info["sub_research"] = sub_findings
             else:
-                print(
-                    colored(f"{'  ' * depth}Decomposition not needed for: {subquestion}", "yellow"))
+                self._log(
+                    f"{'  ' * depth}Decomposition not needed for: {subquestion}", "yellow")
 
         # --- Analysis/Summarization ---
         summary = self._analyze_findings(subquestion, context, additional_info)
@@ -291,8 +307,8 @@ class DeepResearch:
     def _analyze_findings(self, subquestion: str, context: str, additional_info: Dict) -> str:
         """Analyze and summarize findings for a specific subquestion, incorporating sub-research."""
         agent = Agent(
-            model=self.analysis_model,
-            description="You are a research analyst. Synthesize the provided information into a concise, factual summary answering the specific subquestion.",
+            model=self.reasoning_model,
+            description="You are a research analyst. Analyse the correctness of the information provided and Synthesize the provided information into a concise, factual summary answering the specific subquestion.",
         )
 
         sub_research_summary = ""
@@ -302,7 +318,7 @@ class DeepResearch:
                 sub_research_summary += f"\nRegarding '{sub_sq}':\n{sub_result.get('summary', 'No summary available.')}\n"
 
         prompt = f"""
-        Please synthesize the following information to answer the specific subquestion: "{subquestion}"
+        Please analyse the correctness of the information provided and synthesize the following information to answer the specific subquestion: "{subquestion}"
 
         --- Information Gathered ---
         {context[:8000]}...
@@ -311,19 +327,20 @@ class DeepResearch:
 
         Instructions:
         1. Focus *only* on answering the subquestion: "{subquestion}"
-        2. Create a clear, concise, and factual summary based *only* on the provided information.
-        3. If specific data (like stock prices, financial metrics) was found, include it accurately.
-        4. If the information is insufficient to fully answer, state that clearly.
-        5. Do not add information not present in the context.
-        6. Structure the summary logically. Use bullet points if helpful for clarity.
-        7. Aim for a comprehensive yet brief summary.
+        2. Analyse the correctness of the information provided.If the information is incorrect with respect to the subquestion and the user prompt (which is {self.user_prompt}) in general and does not line up with the situation the user is in or has described or has asked for, provide the correct information.
+        3. Create a clear, concise, and factual summary based *only* on the provided information. 
+        4. If specific data (like stock prices, financial metrics) was found, include it accurately.
+        5. If the information is insufficient to fully answer, state that clearly.
+        6. Do not add information not present in the context.
+        7. Structure the summary logically. Use bullet points if helpful for clarity.
+        8. Aim for a comprehensive yet brief summary.
         """
         try:
             response = agent.run(prompt)
             return response.content
         except Exception as e:
-            print(
-                colored(f"Error analyzing findings for '{subquestion}': {e}", "red"))
+            self._log(
+                f"Error analyzing findings for '{subquestion}': {e}", "red")
             return f"Error summarizing findings for '{subquestion}'."
 
     def _synthesize_research(self, main_query: str, research_results: Dict[str, Dict]) -> str:
@@ -362,28 +379,34 @@ class DeepResearch:
             response = agent.run(prompt)
             return response.content
         except Exception as e:
-            print(colored(f"Error synthesizing final answer: {e}", "red"))
+            self._log(f"Error synthesizing final answer: {e}", "red")
             return f"Error synthesizing the final research report: {e}"
 
     def research(self, query: str) -> Dict[str, Any]:
         """Execute deep research on a query."""
-        print(colored(
-            f"\n=== Starting Deep Research on: {query} ===", "blue", attrs=["bold"]))
+        # Clear debug log for new research
+        self.debug_log = []
+        self._log(
+            f"\n=== Starting Deep Research on: {query} ===", "blue", attrs=["bold"])
         self.search_calls_made = 0  # Reset counter for each new research task
 
         # Step 1: Generate initial subquestions
         subquestions = self._generate_subquestions(query)
         if not subquestions:
-            print(
-                colored("Failed to generate subquestions. Aborting deep research.", "red"))
-            return {"query": query, "answer": "Could not perform deep research due to an issue generating subquestions."}
+            self._log(
+                "Failed to generate subquestions. Aborting deep research.", "red")
+            return {
+                "query": query,
+                "answer": "Could not perform deep research due to an issue generating subquestions.",
+                "debug_log": "\n".join(self.debug_log)
+            }
 
         # Step 2: Research each subquestion (potentially recursively)
         subquestion_results = {}
         for sq in subquestions:
             if self.search_calls_made >= self.max_search_calls:
-                print(colored(
-                    f"Max search calls ({self.max_search_calls}) reached during subquestion research.", "red"))
+                self._log(
+                    f"Max search calls ({self.max_search_calls}) reached during subquestion research.", "red")
                 subquestion_results[sq] = {
                     "summary": "Skipped due to max search call limit."}
                 continue  # Skip researching remaining questions
@@ -392,15 +415,20 @@ class DeepResearch:
         # Step 3: Synthesize findings into the final answer
         final_answer = self._synthesize_research(query, subquestion_results)
 
-        print(colored("\n=== Deep Research Complete ===\n",
-              "blue", attrs=["bold"]))
+        self._log("\n=== Deep Research Complete ===\n", "blue", attrs=["bold"])
+
+        # Record timing information for diagnostics
+        total_calls = self.search_calls_made
+        self._log(f"Total search calls made: {total_calls}", "cyan")
 
         return {
             "query": query,
             "subquestions": subquestions,
             # Contains summaries and potentially raw data
             "subquestion_results": subquestion_results,
-            "answer": final_answer
+            "answer": final_answer,
+            # Return all logged messages as a single string
+            "debug_log": "\n".join(self.debug_log)
         }
 
 
@@ -413,10 +441,15 @@ if __name__ == "__main__":
     result = deep_research.research(query)
     end_time = time.time()
 
-    print(
-        colored(f"Total time taken: {end_time - start_time:.2f} seconds", "magenta"))
+    self._log(
+        f"Total time taken: {end_time - start_time:.2f} seconds", "magenta")
     console.print(Markdown(colored("\n=== Final Research Answer ===\n",
                                    "green", attrs=["bold"])))
     console.print(Markdown(result["answer"]))
+
+    # Also save debug log
+    with open('./docs/debug_log.txt', 'w') as f:
+        f.write(result["debug_log"])
+
     with open('./docs/outputs.md', 'a') as f:
         f.write("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" + result["answer"])

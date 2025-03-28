@@ -226,12 +226,14 @@ def process_query_flow(query: str, memory: ConversationBufferMemory, deep_search
                 research_result = researcher.research(query)
                 web_research_context = research_result.get(
                     "answer", "Deep research failed to produce an answer.")
+                debug_log = research_result.get("debug_log", "")
                 # Potentially extract tool calls if DeepResearch class logs them
                 # tool_calls_history.extend(researcher.get_tool_calls()) # If implemented
                 print(colored("Deep Research completed.", "green"))
             except Exception as e:
                 print(colored(f"Error during Deep Research: {e}", "red"))
                 web_research_context = f"Deep research encountered an error: {str(e)}"
+                debug_log = f"Deep research encountered an error: {str(e)}"
         else:
             # --- Standard Web Search Path ---
             print(colored("Initiating Web Search using Tavily/YFinance...", 'magenta'))
@@ -339,4 +341,4 @@ def process_query_flow(query: str, memory: ConversationBufferMemory, deep_search
     # display_tool_calls(tool_calls_history)
 
     print(colored("Processing complete.", "white", attrs=["bold"]))
-    return final_answer
+    return {"answer": final_answer, "debug_log": "\n".join(debug_log)}
