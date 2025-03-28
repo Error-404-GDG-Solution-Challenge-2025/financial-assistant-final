@@ -11,20 +11,25 @@ from vars import (
 )
 from agno.tools.yfinance import YFinanceTools
 # Import graders and summarizer
-from retrieval_grader import retrieval_grader, small_talk_grader
-from deep_research import DeepResearch
-from summarizer import summarize  # Import the refined summarize function
+from retrieval_grader import retrieval_grader, small_talk_grader # Keep existing imports if they define other things
+from deep_research import DeepResearch # Import the modified DeepResearch class
+# from summarizer import summarize # Not currently used for final synthesis
 from tavily import TavilyClient
 
 import os
 from dotenv import load_dotenv
 from rich.console import Console
 from termcolor import colored
-from langchain.memory import ConversationBufferMemory  # Import memory
+from langchain.memory import ConversationBufferMemory # Import memory
 from langchain_core.messages import SystemMessage
 from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from retrieval_grader import YesNoParser
+# Import necessary parsers
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain.output_parsers import BooleanOutputParser # Import Boolean parser
+
+# from retrieval_grader import YesNoParser # Remove if SimpleYesNoParser was defined here
+from typing import Optional, Callable, Dict, Any # Add Dict, Any, Optional, Callable
+import traceback # Import traceback for detailed error logging
 
 load_dotenv()
 console = Console()
@@ -39,27 +44,20 @@ yf_tool = YFinanceTools(
     stock_price=True,
     analyst_recommendations=True,
     stock_fundamentals=True,
-    # historical_prices=False, # Keep focused
     company_info=True,
-    # company_news=False # Use Tavily for news
 )
-# Add .name attribute if Agno tools don't have it, needed for display
 if not hasattr(yf_tool, 'name'):
     yf_tool.name = "YFinanceTools"
 if not hasattr(tavily_client, 'name'):
     tavily_client.name = "TavilySearch"
 
-
 researcher = DeepResearch(
     max_search_calls=MAX_SEARCH_CALLS, max_depth=MAX_DEPTH)
 
+
 # --- Initialize Knowledge Base ---
-# Ensure vector_store is loaded correctly (adjust path if needed)
-# Example assumes vector_store is ready from ingest.py
 try:
-    # retriever = vector_store.as_retriever(search_kwargs={'k': 3}) # Retrieve top 3 docs
-    # Assuming ingest.vector_store is the ready-to-use store object
-    retriever = vector_store.as_retriever()
+    retriever = vector_store.as_retriever(search_kwargs={'k': 3})
 except Exception as e:
     print(colored(f"Error initializing vector store/retriever: {e}", "red"))
     print(colored("Knowledge base retrieval will be unavailable.", "yellow"))
@@ -69,276 +67,283 @@ knowledge_base = LangChainKnowledgeBase(
     retriever=retriever) if retriever else None
 
 # --- Initialize LLMs ---
-main_llm = get_llm_provider(get_llm_id("remote"))
-# Potentially specific model for tool calls
-tool_llm = get_llm_provider(get_llm_id("tool"))
+# Ensure framework="langchain" is specified when Langchain specific features like parsers are used
+main_llm_langchain = get_llm_provider(get_llm_id("remote"), framework="langchain")
+tool_llm_langchain = get_llm_provider(get_llm_id("tool"), framework="langchain")
 
-# --- Helper Function for Tool Call Display ---
+# Keep Agno-compatible LLMs if needed for Agno Agents
+main_llm_agno = get_llm_provider(get_llm_id("remote"))
+tool_llm_agno = get_llm_provider(get_llm_id("tool"))
 
 
-def display_tool_calls(tool_calls):
-    """Display tool calls in a formatted way (simplified)"""
-    print(colored("\n--- Tool Call History ---", "cyan"))
-    if not tool_calls:
-        print(colored("No tool calls recorded for this step.", "yellow"))
-        return
-
-    # Adapt based on the actual structure of tool_calls from Agno agent
-    for i, call in enumerate(tool_calls, 1):
-        print(colored(f"Call #{i}:", "yellow"))
-        # Try common attributes, adjust as needed for Agno's structure
-        tool_name = getattr(call, 'tool', call.get('name', 'Unknown Tool'))
-        tool_input = getattr(call, 'tool_input', call.get(
-            'arguments', call.get('input', {})))
-        tool_output = getattr(call, 'tool_output', call.get('output', 'N/A'))
-
-        print(colored(f"  Tool: {tool_name}", "green"))
-        print(colored(f"  Input: {tool_input}", "blue"))
-        # Truncate long outputs
-        print(colored(f"  Output: {str(tool_output)[:300]}...", "magenta"))
-    print(colored("--- End Tool Call History ---\n", "cyan"))
+# --- Helper Function for Tool Call Display (Keep if needed) ---
+# ... (display_tool_calls function remains the same) ...
 
 
 # --- Core Processing Function ---
-def process_query_flow(query: str, memory: ConversationBufferMemory, deep_search: bool = False) -> str:
-    """
-    Processes the user query through RAG, Web Search/Deep Research, and Synthesis.
-    Uses provided memory object.
-    """
-    print(colored(
-        f"\nProcessing Query: '{query}' (Deep Search: {deep_search})", "white", attrs=["bold"]))
+def process_query_flow(
+    query: str,
+    memory: ConversationBufferMemory,
+    deep_search: bool = False,
+    stream_callback: Optional[Callable[[str], None]] = None
+) -> Dict[str, Any]:
+    print(colored(f"\nProcessing Query: '{query}' (Deep Search: {deep_search})", "white", attrs=["bold"]))
     final_answer = ""
     rag_context = ""
     web_research_context = ""
-    tool_calls_history = []  # Collect tool calls across steps
+    research_debug_log = ""
 
-    # === 1. Small Talk Check ===
+    # === 1. Small Talk Check (Using BooleanOutputParser) ===
     try:
-        small_talk_result = small_talk_grader.invoke({"question": query})
-        if small_talk_result.get("is_small_talk"):
+        print(colored("Checking for small talk...", "cyan"))
+        # Use Langchain compatible LLM
+        small_talk_llm = main_llm_langchain
+        # Updated prompt for BooleanOutputParser (often works better with true/false but tries yes/no)
+        small_talk_prompt = PromptTemplate(
+            template="Is the following a simple greeting, pleasantry, or conversational filler (small talk)? Answer ONLY with 'YES' or 'NO'.\n\nQuestion: {question}",
+            input_variables=["question"]
+        )
+        # Use BooleanOutputParser
+        small_talk_parser = BooleanOutputParser()
+        small_talk_chain = small_talk_prompt | small_talk_llm | small_talk_parser
+
+        # Invoke the chain
+        is_small_talk = small_talk_chain.invoke({"question": query})
+        print(colored(f"Small talk check result: {is_small_talk}", "magenta"))
+
+        if is_small_talk: # BooleanOutputParser returns True or False
             print(colored("Query identified as small talk.", "yellow"))
-            # Use a simple conversational response (can use LLM for variety)
+            # Use Agno compatible LLM for the Agno Agent
             conv_agent = Agent(
-                model=main_llm, description="You are a friendly assistant.", memory=memory)
-            response = conv_agent.run(f"Respond conversationally to: {query}")
-            return response.content
+                model=main_llm_agno,
+                description="You are a friendly assistant.",
+                memory=memory
+            )
+            history = memory.load_memory_variables({})["chat_history"]
+            response = conv_agent.run(f"Respond conversationally to: {query}", chat_history=history)
+            return {"answer": response.content, "deep_research_log": ""}
     except Exception as e:
+        # Catch potential OutputParserException here too
         print(colored(f"Error during small talk check: {e}", "red"))
-        # Proceed assuming it's not small talk
+        if "Invalid" in str(e) or "OutputParserException" in str(e):
+             print(colored("Attempting to proceed assuming it's not small talk...", "yellow"))
+        else:
+             traceback.print_exc() # Print full trace for unexpected errors
+        # Proceed assuming it's not small talk on error
+
 
     # === 2. RAG Retrieval ===
-    rag_agent = Agent(
-        model=main_llm,
-        knowledge=knowledge_base,
-        description="Answer to the user question from the knowledge base",
-        markdown=True,
-        search_knowledge=True,
-    )
     retrieved_docs_content = "No documents found or knowledge base unavailable."
     retrieved_docs = None
-    if knowledge_base:
+    if knowledge_base and retriever:
         try:
             print(colored("Attempting RAG retrieval...", "cyan"))
-            # Use knowledge base directly, Agno agent might do this internally too
-            # retrieved_docs = knowledge_base.search(query)  # Get List[Dict]
-            retrieved_docs = rag_agent.get_relevant_docs_from_knowledge(query)
+            retrieved_docs = retriever.invoke(query) # Langchain LCEL standard invoke
+
             if retrieved_docs:
-                # retrieved_docs_content = "\n\n".join(
-                #     [doc.page_content for doc in retrieved_docs])
-                retrieved_docs_content = "\n\n".join([doc["content"] for doc in retrieved_docs])
-                print(colored("RETRIEVED DOCUMENTS: ", "green"))
-                print(colored(retrieved_docs_content, "yellow"))
-                print(colored(
-                    f"Retrieved {len(retrieved_docs)} snippets from knowledge base.", "green"))
-                # print(colored(retrieved_docs_content[:500] + "...", "yellow")) # Print snippet preview
-                # Add this debugging code to identify the document structure
-                if isinstance(retrieved_docs[0], dict):
-                    print(f"Document type: {type(retrieved_docs[0])}")
-                    print(f"Document attributes: {dir(retrieved_docs[0])}")
+                retrieved_docs_content = "\n\n".join([doc.page_content for doc in retrieved_docs])
+                print(colored(f"Retrieved {len(retrieved_docs)} snippets.", "green"))
+                print(colored("Retrieved Snippet:", "yellow"))
+                print(colored(retrieved_docs_content[:500] + "...", "yellow"))
             else:
-                print(
-                    colored("No relevant documents found in knowledge base.", "yellow"))
+                print(colored("No relevant documents found in knowledge base.", "yellow"))
+                retrieved_docs_content = "No relevant documents found in knowledge base."
         except Exception as e:
             print(colored(f"Error during RAG retrieval: {e}", "red"))
+            traceback.print_exc()
             retrieved_docs_content = "Error retrieving documents from knowledge base."
     else:
         print(colored("Knowledge base not available, skipping RAG.", "yellow"))
 
-    # === 3. Relevance Grading ===
-    grade = 0  # Default to not relevant
-    if knowledge_base and retrieved_docs:  # Only grade if docs were found
+    # === 3. Relevance Grading (Using JsonOutputParser with Markdown Fence Instruction) ===
+    grade = 0 # Default to not relevant
+    if retrieved_docs:
         try:
-            print(colored("RETRIEVED DOCUMENTS BEFORE GRADING: ", "cyan"))
-            print(colored(retrieved_docs_content, "yellow"))
             print(colored("Grading retrieved documents...", "cyan"))
-            grade_result = retrieval_grader.invoke(
-                {"question": query, "documents": retrieved_docs_content})
-            grade = grade_result.get('score')
-            print(colored(f"Retrieval grade: {grade_result}", 'magenta'))
-            if grade == 1:
-                rag_context = retrieved_docs_content  # Use RAG context if relevant
+            grading_llm = main_llm_langchain
+            # Updated prompt asking for JSON within markdown fences
+            grading_prompt = PromptTemplate(
+                 template="""Evaluate the relevance of the retrieved documents to the user's question. Give a binary score: 1 if relevant, 0 if not.\n
+                 Provide the score ONLY as JSON within ```json markdown code fences. Example:
+                 ```json
+                 {{
+                   "score": 1
+                 }}
+                 ```
+
+                 Documents:\n{documents}\n\nQuestion: {question}""",
+                 input_variables=["documents", "question"]
+            )
+            # Standard JsonOutputParser - should handle markdown fences
+            grading_parser = JsonOutputParser()
+            grading_chain = grading_prompt | grading_llm | grading_parser
+
+            grade_result = grading_chain.invoke({"question": query, "documents": retrieved_docs_content})
+            # Check the type/content of grade_result
+            print(f"DEBUG: Raw grade_result: {grade_result} (type: {type(grade_result)})")
+            if isinstance(grade_result, dict):
+                 grade = grade_result.get('score', 0) # Default to 0 if key missing
             else:
-                print(
-                    colored("Documents deemed not relevant or real-time data needed.", "yellow"))
-                rag_context = ""  # Discard irrelevant RAG context
+                 print(colored("Warning: Grading did not return a dictionary.", "yellow"))
+                 grade = 0 # Default to not relevant if parsing failed unexpectedly
+
+            print(colored(f"Retrieval grade: {grade} ({'Relevant' if grade == 1 else 'Not Relevant'})", 'magenta'))
+
+            if grade == 1:
+                rag_context = retrieved_docs_content
+            else:
+                print(colored("Documents deemed not relevant or insufficient.", "yellow"))
+                rag_context = ""
         except Exception as e:
             print(colored(f"Error during retrieval grading: {e}", "red"))
-            rag_context = ""  # Discard context on error
+            # Don't necessarily need full traceback here if it's the expected OutputParserException
+            if "Invalid" in str(e) or "OutputParserException" in str(e):
+                 print(colored("Failed to parse relevance grade. Assuming documents are not relevant.", "yellow"))
+            else:
+                 traceback.print_exc() # Show full trace for unexpected errors
+            rag_context = "" # Discard context on error
+
 
     # === 4. Web Search / Deep Research ===
-    # Perform this step UNLESS RAG was perfect AND no real-time data needed (hard to determine perfectly, so often do it)
-    # Simplification: Always do web search/deep research unless RAG grade is 1 AND query seems purely conceptual.
-    # Let's implement a check: Does the query ask for current data/prices?
-    needs_realtime_check_prompt = PromptTemplate(
-        template="""Does the following question ask for current, real-time information like stock prices, latest news, or current market conditions? Give a binary score '1' or '0' score to indicate whether the document is relevant to the question. \n
-        Provide the binary score as a JSON with a single key 'score' and no premable or explanation. {{'score': 1/0}}.\n\nQuestion: {question}""",
-        input_variables=["question"]
-    )
-    print(colored("Checking for real-time data need...", "cyan"))
-    realtime_check_llm = get_llm_provider(
-        get_llm_id("remote"), framework="langchain")
-    needs_realtime_parser = JsonOutputParser()  # Re-use the parser
-    needs_realtime_chain = needs_realtime_check_prompt | realtime_check_llm | needs_realtime_parser
-
-    needs_realtime = True  # Default to assuming real-time might be needed
+    # Check for real-time need (Using BooleanOutputParser)
+    needs_realtime = True # Default assumption
     try:
-        needs_realtime_result = needs_realtime_chain.invoke(
-            {"question": query})
-        # Reusing parser, key is misleading here
-        needs_realtime = needs_realtime_result.get("is_small_talk")
-        print(colored(f"Needs real-time data check: {needs_realtime}", "cyan"))
+        print(colored("Checking for real-time data need...", "cyan"))
+        realtime_check_llm = main_llm_langchain
+        # Updated prompt for BooleanOutputParser
+        realtime_check_prompt = PromptTemplate(
+            template="""Does the question below strongly imply a need for CURRENT, up-to-the-minute information like stock prices, breaking news, or live market status? Answer ONLY with 'YES' or 'NO'.\n\nQuestion: {question}""",
+            input_variables=["question"]
+        )
+        realtime_check_parser = BooleanOutputParser()
+        realtime_check_chain = realtime_check_prompt | realtime_check_llm | realtime_check_parser
+
+        # BooleanOutputParser returns True/False
+        needs_realtime = realtime_check_chain.invoke({"question": query})
+
+        print(colored(f"Needs real-time data check result: {'Yes' if needs_realtime else 'No'}", "cyan"))
     except Exception as e:
         print(colored(f"Error checking for real-time need: {e}", "red"))
+        if "Invalid" in str(e) or "OutputParserException" in str(e):
+            print(colored("Failed to parse real-time need. Assuming real-time IS needed.", "yellow"))
+        else:
+            traceback.print_exc()
+        needs_realtime = True # Default to True on error
 
-    # Decide whether to perform web search/deep research
+    # Decide whether to perform web step
     perform_web_step = True
     if grade == 1 and not needs_realtime:
-        print(colored(
-            "Relevant RAG found and no real-time data needed. Potentially skipping web search.", "green"))
-        # We could skip here, but combining often yields better results. Let's proceed.
-        # perform_web_step = False # Uncomment to skip web search in this specific case
+        print(colored("Relevant RAG found and no immediate real-time data need identified. Proceeding with web search for verification/augmentation.", "green"))
+        # perform_web_step = False # Uncomment to skip web step in this case
 
     if perform_web_step:
         if deep_search:
             # --- Deep Research Path ---
             print(colored("Initiating Deep Research...", 'magenta'))
+            if stream_callback: stream_callback("Initiating Deep Research...\n")
             try:
-                research_result = researcher.research(query)
-                web_research_context = research_result.get(
-                    "answer", "Deep research failed to produce an answer.")
-                debug_log = research_result.get("debug_log", "")
-                # Potentially extract tool calls if DeepResearch class logs them
-                # tool_calls_history.extend(researcher.get_tool_calls()) # If implemented
+                # Pass the stream_callback to the research method
+                # Ensure 'researcher' uses Agno-compatible models internally if needed
+                research_result = researcher.research(query, stream_callback=stream_callback)
+                web_research_context = research_result.get("answer", "Deep research failed to produce a synthesized answer.")
+                research_debug_log = research_result.get("debug_log", "")
                 print(colored("Deep Research completed.", "green"))
+                if stream_callback: stream_callback("Deep Research completed.\n")
+
             except Exception as e:
-                print(colored(f"Error during Deep Research: {e}", "red"))
-                web_research_context = f"Deep research encountered an error: {str(e)}"
-                debug_log = f"Deep research encountered an error: {str(e)}"
+                error_msg = f"Critical Error during Deep Research execution: {e}"
+                print(colored(error_msg, "red"))
+                traceback.print_exc()
+                web_research_context = f"Deep research encountered a critical error: {str(e)}"
+                research_debug_log = f"{research_debug_log}\n\n--- CRITICAL ERROR ---\n{error_msg}\n{traceback.format_exc()}"
+                if stream_callback:
+                    stream_callback(f"--- DEEP RESEARCH CRITICAL ERROR: {e} ---\n")
         else:
             # --- Standard Web Search Path ---
-            print(colored("Initiating Web Search using Tavily/YFinance...", 'magenta'))
-            # Use a dedicated agent for web search + tools
+            print(colored("Initiating Standard Web Search using Tavily/YFinance...", 'magenta'))
+            # Use Agno compatible LLM for Agno Agent
             web_search_agent = Agent(
-                model=tool_llm,  # Use the tool-focused LLM
-                # memory=memory, # Pass memory for context
-                description="""You are a Financial Assistant specialized in retrieving real-time and web-based information.
-                Your primary goal is to answer the user's query using the provided tools (Tavily Search, YFinance).
-
-                Instructions:
-                1. Analyze the query: {query}
-                2. Determine if real-time financial data (stock price) is needed. If yes, use yf_tool. Extract tickers/company names accurately.
-                3. Determine if recent news, general information regarding finance that do not involve stock prices, or broader context is needed. If yes, use tavily_client. Formulate a concise search query.
-                4. Execute the necessary tool calls. You MUST call the tools; do not just mention them.
-                5. If multiple stocks are mentioned, call yf_tool for each.
-                6. Synthesize the results from the tool calls into a factual answer to the original query.
-                7. If a tool fails, report that it failed but try to answer with other available information.
-                8. Respond *only* with the synthesized answer. Do not include descriptions of tool calls in the final output.
-                Current time: {current_datetime}
-                """,
+                model=tool_llm_agno,
+                description="""You are a Financial Assistant specialized in retrieving real-time and web-based information using Tavily Search for general info/news and YFinance for specific stock data. Execute tool calls as needed. Synthesize the results factually. Current time: {current_datetime}""",
                 markdown=True,
-                search_knowledge=False,  # Don't use RAG within this agent
-                tools=[tavily_client, yf_tool],  # Pass tool instances
-                show_tool_calls=True,  # Enable logging within Agno if it supports it
+                search_knowledge=False,
+                tools=[tavily_client, yf_tool],
+                show_tool_calls=True,
                 add_datetime_to_instructions=True,
-                # max_iterations=5 # Limit iterations to prevent loops
-                # error_handler=lambda e: print(f"Web search agent error: {e}") # Basic error handler
             )
             try:
-                # Pass query with memory context (Agno might handle memory implicitly if passed at init)
-                # response = web_search_agent.run(query) # Check Agno docs for memory usage
-                # If memory needs explicit passing in run:
                 history = memory.load_memory_variables({})["chat_history"]
                 response = web_search_agent.run(query, chat_history=history)
-
                 web_research_context = response.content
-                print(
-                    colored(f"Web Search Response: {web_research_context}", "magenta"))
-                # Try to get tool calls if Agno agent provides a method
-                # if hasattr(web_search_agent, 'get_tool_call_history'):
-                #     calls = web_search_agent.get_tool_call_history()
-                #     tool_calls_history.extend(calls)
-                # display_tool_calls(calls) # Display calls from this step
-                print(colored("Web Search completed.", "green"))
+                print(colored(f"Web Search Agent Response: {web_research_context}", "magenta"))
+                print(colored("Standard Web Search completed.", "green"))
+
             except Exception as e:
-                print(
-                    colored(f"Error during Web Search Agent execution: {str(e)}", "red"))
-                web_research_context = f"Web search encountered an error: {str(e)}"
-                # Log the exception traceback for debugging if needed
-                import traceback
+                error_msg = f"Error during Standard Web Search Agent execution: {str(e)}"
+                print(colored(error_msg, "red"))
                 traceback.print_exc()
+                web_research_context = f"Standard web search encountered an error: {str(e)}"
 
     # === 5. Synthesis ===
     print(colored("Synthesizing final answer...", "cyan"))
+    # Use Agno compatible LLM for Agno Agent
     synthesis_agent = Agent(
-        model=main_llm,
-        # memory=memory, # Pass memory for conversational context
-        description="""You are a Financial Analyst Synthesizer. Your task is to combine information from different sources (internal knowledge, web research) into a single, comprehensive, and accurate answer to the user's query.
-
-        Instructions:
-        1. Review the original user query: {query}
-        2. Review the information retrieved from the internal knowledge base (RAG): {rag_context}
-        3. Review the information gathered from web search or deep research: {web_research_context}
-        4. Synthesize these pieces of information into a single, cohesive response.
-        5. Prioritize accuracy and relevance to the original query.
-        6. If both sources provide relevant information, integrate them smoothly. If one source is clearly more relevant or up-to-date (e.g., web search for real-time data), give it appropriate weight.
-        7. If RAG context exists, mention that the information is based on available documents and supplement/verify with web findings.
-        8. If numerical data (prices, metrics) is available from web/tools, include it accurately.
-        9. Structure the answer clearly using Markdown (headings, bullets).
-        10. If neither source provided a good answer, state that you couldn't find the information.
-        11. Respond directly to the user. Do not mention the internal steps (RAG, web search) unless clarifying the source of information.
-        """,
+        model=main_llm_agno,
+        description="""You are a Financial Analyst Synthesizer. Combine information from internal knowledge (RAG Context) and web research (Web/Deep Research Context) to answer the user's original query comprehensively. Prioritize accuracy and recent information. Format clearly using Markdown.""",
         markdown=True,
-        # search_knowledge=False # Synthesis step doesn't need further searching
     )
 
     try:
-        # Prepare context for the synthesis prompt
         synthesis_prompt_input = f"""Original Query: {query}
 
-        --- Information from Knowledge Base ---
+        --- Information from Knowledge Base (RAG Context) ---
         {rag_context if rag_context else "No relevant information found in internal documents."}
 
-        --- Information from Web/Deep Research ---
+        --- Information from Web/Deep Research Context ---
         {web_research_context if web_research_context else "No information gathered from web search or deep research."}
 
         ---
 
-        Synthesize the above information to answer the original query comprehensively and accurately.
+        Synthesize the above information to answer the original query comprehensively and accurately. Structure the response clearly using Markdown. If conflicting information exists, highlight it or prioritize the most recent/reliable source (often the web context for current data). Respond directly to the user.
         """
-        print(colored(f"SYNTHESIS PROMPT: {synthesis_prompt_input}", "yellow"))
-        # Pass history if needed by Agno agent run method
+        print(colored(f"SYNTHESIS PROMPT INPUT LENGTH: {len(synthesis_prompt_input)} chars", "grey"))
+
         history = memory.load_memory_variables({})["chat_history"]
-        final_response = synthesis_agent.run(
-            synthesis_prompt_input, chat_history=history)
+        final_response = synthesis_agent.run(synthesis_prompt_input, chat_history=history)
         final_answer = final_response.content
 
     except Exception as e:
         print(colored(f"Error during final synthesis: {e}", "red"))
+        traceback.print_exc()
         final_answer = f"Sorry, I encountered an error while synthesizing the final answer: {str(e)}"
 
-    # Display all collected tool calls at the end (optional)
-    # print(colored("\n=== Full Tool Call Summary ===", "blue"))
-    # display_tool_calls(tool_calls_history)
-
     print(colored("Processing complete.", "white", attrs=["bold"]))
-    return {"answer": final_answer, "debug_log": "\n".join(debug_log)}
+
+    return {
+        "answer": final_answer,
+        "deep_research_log": research_debug_log
+        }
+
+# Example of how to potentially run this file directly (for testing)
+if __name__ == "__main__":
+    print("Testing process_query_flow...")
+    # test_query = "Is Nio stock a good investment right now?"
+    # test_query = "What is the weather in London?" # Test small talk / tool use
+    test_query = "I want to buy a sedan car in 2 years, where should I invest my money?" # Test grading failure
+
+    # Create a dummy memory for testing
+    test_memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
+
+    print("\n--- Testing Standard Search ---")
+    result_standard = process_query_flow(test_query, test_memory, deep_search=False)
+    print("\nStandard Search Final Answer:")
+    console.print(Markdown(result_standard["answer"]))
+    print("-" * 30)
+
+    print("\n--- Testing Deep Research (will log to console) ---")
+    result_deep = process_query_flow(test_query, test_memory, deep_search=True)
+    print("\nDeep Research Final Answer:")
+    console.print(Markdown(result_deep["answer"]))
+    print("\nDeep Research Debug Log (excerpt):")
+    print(result_deep.get("deep_research_log", "No log returned")[:1000] + "...") # Safely get log
+    print("-" * 30)
