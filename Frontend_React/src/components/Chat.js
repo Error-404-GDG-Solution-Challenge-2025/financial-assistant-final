@@ -20,13 +20,15 @@ const theme = createTheme({
   },
 });
 
+
 function Chat() {
   const [chats, setChats] = useState([
     { id: 1, title: 'Welcome Chat', messages: [] }
   ]);
   const [activeChat, setActiveChat] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [ai_response, setAi_response] = useState("");
+  // Removed unused ai_response state
+  // const [ai_response, setAi_response] = useState("");
 
   const handleNewChat = () => {
     const newChat = {
@@ -46,58 +48,69 @@ function Chat() {
     }
   };
 
-  const handleSendMessage = (message) => {
-    const currentChat = chats.find(chat => chat.id === activeChat);
-    if (!currentChat) return;
 
+  const handleSendMessage = (message) => {
+    const currentChatIndex = chats.findIndex(chat => chat.id === activeChat);
+    if (currentChatIndex === -1) return;
+
+    const currentChat = chats[currentChatIndex];
+    const isFirstMessage = currentChat.messages.length === 0;
+
+    // Create the user message object
+    const userMessage = { role: 'user', content: message };
+
+    // Update chat state immediately with the user's message
+    const updatedChats = [...chats];
     const updatedChat = {
       ...currentChat,
-      messages: [
-        ...currentChat.messages,
-        { role: 'user', content: message }
-      ]
+      messages: [...currentChat.messages, userMessage],
+      // Update title immediately if it's the first message
+      title: isFirstMessage
+        ? message.slice(0, 30) + (message.length > 30 ? '...' : '')
+        : currentChat.title,
     };
+    updatedChats[currentChatIndex] = updatedChat;
+    setChats(updatedChats);
 
-    // Call the python backend and retrieve the generated response from agent
-    axios.post('http://localhost:8000/generate', {
-      prompt: message
+
+    // Call the python backend
+    axios.post('http://localhost:8000/query', { // Corrected endpoint
+      query: message,                          // Corrected request body key
+      deep_search: false                       // Added deep_search flag (defaulting to false)
     }).then(response => {
-      console.log("AI Response:", response.data);
-      setAi_response(response.data.generated_text);
+      console.log("AI Response:", response.data); // This will show the nested structure
+      // --- FIX HERE ---
+      // Extract the correct field from the NESTED response
+      const aiMessageContent = response.data.answer.answer; // Access the inner 'answer'
+
+      // Create the assistant message object
+      const assistantMessage = { role: 'assistant', content: aiMessageContent };
 
       // Update the chat with the AI response
       setChats(prevChats => prevChats.map(chat =>
         chat.id === activeChat ? {
           ...chat,
-          messages: [...chat.messages, { role: 'assistant', content: response.data.generated_text }]
+          // Add the assistant message to the existing messages
+          messages: [...chat.messages, assistantMessage]
         } : chat
       ));
     }).catch(error => {
       console.error("Error calling API:", error);
-      // Handle error by showing a message to the user
+      // Handle error by adding an error message to the chat
+      const errorMessage = { role: 'assistant', content: "Sorry, I couldn't process your request. Please try again." };
       setChats(prevChats => prevChats.map(chat =>
         chat.id === activeChat ? {
           ...chat,
-          messages: [...chat.messages, { role: 'assistant', content: "Sorry, I couldn't process your request. Please try again." }]
+          messages: [...chat.messages, errorMessage]
         } : chat
       ));
     });
 
-    // Update chat title if it's the first message
-    if (currentChat.messages.length === 0) {
-      updatedChat.title = message.slice(0, 30) + (message.length > 30 ? '...' : '');
-    }
-
-    setChats(chats.map(chat =>
-      chat.id === activeChat ? updatedChat : chat
-    ));
-
-    // Remove the setTimeout simulation since we're using the real API now
+    // The user message and title update are now handled before the API call
   };
 
   const currentChat = chats.find(chat => chat.id === activeChat);
 
-  chats.map(chat => console.log("MESSAGES: ", chat.messages));
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -113,7 +126,8 @@ function Chat() {
           onSelectChat={setActiveChat}
         />
         <ChatInterface
-          messages={currentChat?.messages || []}
+          // Ensure messages are passed correctly even if currentChat is briefly undefined
+          messages={currentChat?.messages || []} // <-- This passes the array of message objects
           onSendMessage={handleSendMessage}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}

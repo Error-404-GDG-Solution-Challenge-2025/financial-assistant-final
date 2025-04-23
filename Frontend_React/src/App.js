@@ -56,16 +56,16 @@ function AppContent({ openModal, isModalOpen, closeModal, user }) {
   const location = useLocation();
   const isChatPage = location.pathname === "/chat";
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const handleToggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  // Remove the unused state and handler function
+  // const [isSidebarOpen, setIsSidebarOpen] = useState(false); // REMOVED
+  // const handleToggleSidebar = () => { // REMOVED
+  //   setIsSidebarOpen(!isSidebarOpen); // REMOVED
+  // }; // REMOVED
 
   return (
     <div className="App">
       {!isChatPage && <Navbar user={user} openModal={openModal} />}
-      
+
       <main>
         <Routes>
           <Route
@@ -78,15 +78,15 @@ function AppContent({ openModal, isModalOpen, closeModal, user }) {
             }
           />
           <Route path="/services" element={<Services />} />
-          <Route 
-            path="/chat" 
-            element={user ? <Chat /> : <Navigate to="/" />} 
+          <Route
+            path="/chat"
+            element={user ? <Chat /> : <Navigate to="/" />}
           />
         </Routes>
       </main>
 
       {!isChatPage && <Footer />}
-      
+
       <LoginModal isOpen={isModalOpen} onClose={closeModal} />
     </div>
   );
