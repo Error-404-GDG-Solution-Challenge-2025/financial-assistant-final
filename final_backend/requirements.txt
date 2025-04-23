@@ -15,4 +15,3 @@ langchain_chroma
 langchain_core
 pydantic
 yfinance
-pysqlite3-binary

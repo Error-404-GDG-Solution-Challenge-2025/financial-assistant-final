@@ -15,17 +15,17 @@ ENABLE_LOCAL = False # Set to True to use Ollama, False for Groq/Cloud LLMs
 # --- Model IDs ---
 # Model for general conversation, synthesis, and potentially grading if capable
 # Llama 3 70b on Groq is a strong candidate
-REMOTE_LLM = "llama3-70b-8192"
-LOCAL_LLM = "llama3:70b" # Example if using Ollama
+REMOTE_LLM = "meta-llama/llama-4-scout-17b-16e-instruct"
+LOCAL_LLM = "llama3.2:latest" # Example if using Ollama
 
 # Model specifically for generating subquestions and deciding on decomposition
 # Needs good reasoning capabilities.
-REASONING_LLM_REMOTE = "deepseek-r1-distill-llama-70b" # Or Mixtral 8x7b
+REASONING_LLM_REMOTE = "meta-llama/llama-4-scout-17b-16e-instruct" # Or Mixtral 8x7b
 REASONING_LLM_LOCAL = "smallthinker:latest" # Or a fine-tuned reasoning model
 
 # Model specifically for reliable tool calling (if different from REMOTE_LLM)
 # Some models are better fine-tuned for function/tool calling.
-TOOL_CALL_LLM_REMOTE = "qwen-2.5-coder-32b" # Often the main model works well if prompted correctly
+TOOL_CALL_LLM_REMOTE = "meta-llama/llama-4-scout-17b-16e-instruct" # Often the main model works well if prompted correctly
 TOOL_CALL_LLM_LOCAL = "llama3.2:latest"
 
 # --- Deep Research Parameters ---

@@ -19,6 +19,7 @@ from tavily import TavilyClient
 import os
 from dotenv import load_dotenv
 from rich.console import Console
+from rich.markdown import Markdown
 from termcolor import colored
 from langchain.memory import ConversationBufferMemory # Import memory
 from langchain_core.messages import SystemMessage
