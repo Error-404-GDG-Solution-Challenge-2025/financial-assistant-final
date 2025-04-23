@@ -31,6 +31,14 @@ from langchain.output_parsers import BooleanOutputParser # Import Boolean parser
 # from retrieval_grader import YesNoParser # Remove if SimpleYesNoParser was defined here
 from typing import Optional, Callable, Dict, Any # Add Dict, Any, Optional, Callable
 import traceback # Import traceback for detailed error logging
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from langchain.memory import ConversationBufferMemory # Ensure this is imported
+# Add these imports for serving static files
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+import os # Make sure os is imported
 
 load_dotenv()
 console = Console()
@@ -165,8 +173,8 @@ def process_query_flow(
             # Updated prompt asking for JSON within markdown fences
             grading_prompt = PromptTemplate(
                  template="""Evaluate the relevance of the retrieved documents to the user's question. Give a binary score: 1 if relevant, 0 if not.\n
-                 Provide the score ONLY as JSON within ```json markdown code fences. Example:
-                 ```json
+                 Provide the score ONLY as JSON within json markdown code fences. Example:
+                 json
                  {{
                    "score": 1
                  }}
@@ -325,26 +333,131 @@ def process_query_flow(
         "deep_research_log": research_debug_log
         }
 
+# Remove the entire testing block below
 # Example of how to potentially run this file directly (for testing)
+# if _name_ == "_main_":
+#     print("Testing process_query_flow...")
+#     # test_query = "Is Nio stock a good investment right now?"
+#     # test_query = "What is the weather in London?" # Test small talk / tool use
+#     test_query = "give me the stock list with date to invest and tell me the year" # Test grading failure
+
+#     # Create a dummy memory for testing
+#     test_memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
+
+#     print("\n--- Testing Standard Search ---")
+#     result_standard = process_query_flow(test_query, test_memory, deep_search=False)
+#     print("\nStandard Search Final Answer:")
+#     console.print(Markdown(result_standard["answer"]))
+#     print("-" * 30)
+#
+#     print("\n--- Testing Deep Research (will log to console) ---")
+#     result_deep = process_query_flow(test_query, test_memory, deep_search=True)
+#     print("\nDeep Research Final Answer:")
+#     console.print(Markdown(result_deep["answer"]))
+#     print("\nDeep Research Debug Log (excerpt):")
+#     print(result_deep.get("deep_research_log", "No log returned")[:1000] + "...") # Safely get log
+#     print("-" * 30)
+
+
+# --- Pydantic Model for Request Body ---
+class QueryRequest(BaseModel):
+    query: str
+    deep_search: bool = False # Default to False if not provided
+
+# --- FastAPI App Setup ---
+app = FastAPI(
+    title="Financial Assistant API",
+    description="API endpoint for the AI Financial Assistant",
+    version="1.0.0"
+)
+
+# --- CORS Configuration ---
+# Keep CORS for development or if API is accessed from other origins
+origins = [
+    "http://localhost:3000", # React dev server
+    "http://localhost:8000", # Allow requests from the app itself if needed
+    # Add deployed frontend URL if applicable
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- In-memory storage for conversation memory ---
+# For production, consider a more robust session management solution
+conversation_memory_store = {}
+
+def get_or_create_memory(session_id: str = "default_session") -> ConversationBufferMemory:
+    """Gets or creates a memory buffer for a session."""
+    if session_id not in conversation_memory_store:
+        conversation_memory_store[session_id] = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True # Important for Langchain chains expecting message objects
+        )
+    return conversation_memory_store[session_id]
+
+# --- API Endpoint ---
+@app.post("/query")
+async def handle_query(request: QueryRequest):
+    """
+    Handles user queries, processes them through the agent flow,
+    and returns the AI's response.
+    """
+    try:
+        print(f"Received query: {request.query}, Deep Search: {request.deep_search}")
+        memory = get_or_create_memory()
+        answer = process_query_flow(
+            query=request.query,
+            memory=memory,
+            deep_search=request.deep_search
+        )
+
+        print(f"Generated answer: {answer}")
+        return {"answer": answer}
+
+    except Exception as e:
+        print(colored(f"API Error: {str(e)}", "red"))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+
+# --- Serve Static Frontend Files (Add this section) ---
+# Define the path to the React build directory relative to run.py
+# Adjust the path separators and levels ('..') as necessary based on your structure
+frontend_build_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Frontend_React', 'build'))
+
+# Check if the build directory exists before mounting
+if os.path.exists(frontend_build_dir):
+    print(colored(f"Serving static files from: {frontend_build_dir}", "cyan"))
+    # Mount the static files directory (serving CSS, JS, images, etc.)
+    # The path "/static" here means files in the build/static folder will be available at http://localhost:8000/static/...
+    app.mount("/static", StaticFiles(directory=os.path.join(frontend_build_dir, "static")), name="static")
+
+    # Catch-all route to serve index.html for any other GET request
+    # This is crucial for client-side routing (React Router)
+    @app.get("/{full_path:path}")
+    async def serve_react_app(full_path: str):
+        index_path = os.path.join(frontend_build_dir, 'index.html')
+        if os.path.exists(index_path):
+            return FileResponse(index_path)
+        else:
+            # Handle case where index.html is not found (optional)
+            raise HTTPException(status_code=404, detail="Frontend index.html not found")
+else:
+    print(colored(f"Warning: Frontend build directory not found at {frontend_build_dir}. Static file serving disabled.", "yellow"))
+    print(colored("Run 'npm run build' in the Frontend_React directory.", "yellow"))
+
+
+# ... (rest of your existing functions like process_query_flow, display_tool_calls, etc.) ...
+
+# --- Main Execution Block (for running with uvicorn) ---
+# Keep this block if you want to run the server using 'python run.py'
 if __name__ == "__main__":
-    print("Testing process_query_flow...")
-    # test_query = "Is Nio stock a good investment right now?"
-    # test_query = "What is the weather in London?" # Test small talk / tool use
-    test_query = "what is the current stock price of BSE sensex?" # Test grading failure
-
-    # Create a dummy memory for testing
-    test_memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")
-
-    print("\n--- Testing Standard Search ---")
-    result_standard = process_query_flow(test_query, test_memory, deep_search=False)
-    print("\nStandard Search Final Answer:")
-    console.print(Markdown(result_standard["answer"]))
-    print("-" * 30)
-
-    print("\n--- Testing Deep Research (will log to console) ---")
-    result_deep = process_query_flow(test_query, test_memory, deep_search=True)
-    print("\nDeep Research Final Answer:")
-    console.print(Markdown(result_deep["answer"]))
-    print("\nDeep Research Debug Log (excerpt):")
-    print(result_deep.get("deep_research_log", "No log returned")[:1000] + "...") # Safely get log
-    print("-" * 30)
+    import uvicorn
+    print(colored("Starting FastAPI server...", "cyan"))
+    # Ensure the app object used here is the FastAPI instance 'app'
+    uvicorn.run("run:app", host="0.0.0.0", port=8000, reload=True) # Use reload for development

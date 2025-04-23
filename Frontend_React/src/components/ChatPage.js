@@ -66,8 +66,8 @@ const ChatPage = ({ user }) => {
       console.log("Sending message with deepResearch:", deepResearch);
       
       // Call the API
-      const response = await axios.post('http://localhost:8000/api/generate', {
-        prompt: message,
+      const response = await axios.post('http://localhost:8000/query', {
+        query: message,
         deepResearch: deepResearch
       });
 
@@ -79,7 +79,7 @@ const ChatPage = ({ user }) => {
           ...chat,
           messages: [
             ...chat.messages,
-            { role: 'assistant', content: response.data.response || response.data.generated_text || "I couldn't generate a response." }
+            { role: 'assistant', content: response.data.answer?.answer || response.data.answer || "I couldn't generate a response." }
           ]
         } : chat
       ));

@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 import re
 import json
+from datetime import datetime
 from agno.tools.yfinance import YFinanceTools
 
 load_dotenv()
