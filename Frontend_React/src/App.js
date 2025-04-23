@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import './styles/App.css';
 
 // Component imports
-import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import Services from './components/Services';
-import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
-import Chat from './components/Chat';
+import ChatPage from './components/ChatPage';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -42,53 +38,32 @@ function App() {
 
   return (
     <Router>
-      <AppContent 
-        openModal={openModal} 
-        isModalOpen={isModalOpen} 
-        closeModal={closeModal}
-        user={user}
-      />
-    </Router>
-  );
-}
-
-function AppContent({ openModal, isModalOpen, closeModal, user }) {
-  const location = useLocation();
-  const isChatPage = location.pathname === "/chat";
-
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const handleToggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  return (
-    <div className="App">
-      {!isChatPage && <Navbar user={user} openModal={openModal} />}
-      
-      <main>
+      <div className="App">
         <Routes>
           <Route
             path="/"
+            element={user ? <ChatPage user={user} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/login"
             element={
-              <>
-                <Hero openModal={openModal} />
-                <Services />
-              </>
+              user ? (
+                <Navigate to="/" />
+              ) : (
+                <div className="login-container">
+                  <h1>AI Chat Assistant</h1>
+                  <button onClick={openModal} className="login-button">
+                    Login to continue
+                  </button>
+                </div>
+              )
             }
           />
-          <Route path="/services" element={<Services />} />
-          <Route 
-            path="/chat" 
-            element={user ? <Chat /> : <Navigate to="/" />} 
-          />
         </Routes>
-      </main>
-
-      {!isChatPage && <Footer />}
-      
-      <LoginModal isOpen={isModalOpen} onClose={closeModal} />
-    </div>
+        
+        <LoginModal isOpen={isModalOpen} onClose={closeModal} />
+      </div>
+    </Router>
   );
 }
 

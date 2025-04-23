@@ -330,7 +330,7 @@ if __name__ == "__main__":
     print("Testing process_query_flow...")
     # test_query = "Is Nio stock a good investment right now?"
     # test_query = "What is the weather in London?" # Test small talk / tool use
-    test_query = "I want to buy a sedan car in 2 years, where should I invest my money?" # Test grading failure
+    test_query = "what is the current stock price of BSE sensex?" # Test grading failure
 
     # Create a dummy memory for testing
     test_memory = ConversationBufferMemory(return_messages=True, memory_key="chat_history")

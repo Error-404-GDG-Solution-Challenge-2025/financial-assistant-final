@@ -6,6 +6,12 @@ from agno.models.groq.groq import Groq
 
 load_dotenv()
 
+
+# System Prompts
+SYSTEM_PROMPT_FOR_SUBQUESTIONS = """
+You are an expert research planner.
+"""
+
 # LLM Configuration
 # Consider models known for strong reasoning and instruction following.
 # If using Groq, Llama 3 70b or Mixtral are good choices.
