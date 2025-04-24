@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 import re
 import json
+from datetime import datetime
 from agno.tools.yfinance import YFinanceTools
 
 load_dotenv()
@@ -85,13 +86,19 @@ class DeepResearch:
         agent = Agent(
             model=self.analysis_model,
             description="You are an expert research planner...",
+            # system_message=SYSTEM_PROMPT_FOR_SUBQUESTIONS
         )
         self.user_prompt = query # Store user prompt for context in analysis
 
         prompt = f"""
         You need to research the following complex topic: "{query}"
         Break this down into exactly {num_questions} specific...
-        Return ONLY the numbered list...
+        Return ONLY the numbered list... 
+        
+        CONTEXT : 
+        
+        Today's date is {datetime.now().strftime("%Y-%m-%d")}
+        Always search for the latest information, considering the current date.
         """ # (Keep existing prompt)
 
         try:

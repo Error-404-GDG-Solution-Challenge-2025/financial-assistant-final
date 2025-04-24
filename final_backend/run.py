@@ -20,6 +20,7 @@ import os
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markdown import Markdown
 from termcolor import colored
 from langchain.memory import ConversationBufferMemory # Import memory
 from langchain_core.messages import SystemMessage
@@ -31,6 +32,14 @@ from langchain.output_parsers import BooleanOutputParser # Import Boolean parser
 # from retrieval_grader import YesNoParser # Remove if SimpleYesNoParser was defined here
 from typing import Optional, Callable, Dict, Any # Add Dict, Any, Optional, Callable
 import traceback # Import traceback for detailed error logging
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from langchain.memory import ConversationBufferMemory # Ensure this is imported
+# Add these imports for serving static files
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
+import os # Make sure os is imported
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -173,8 +182,8 @@ def process_query_flow(
             # Updated prompt asking for JSON within markdown fences
             grading_prompt = PromptTemplate(
                  template="""Evaluate the relevance of the retrieved documents to the user's question. Give a binary score: 1 if relevant, 0 if not.\n
-                 Provide the score ONLY as JSON within ```json markdown code fences. Example:
-                 ```json
+                 Provide the score ONLY as JSON within json markdown code fences. Example:
+                 json
                  {{
                    "score": 1
                  }}
@@ -334,6 +343,7 @@ def process_query_flow(
         }
 
 # Remove the entire testing block below
+# Remove the entire testing block below
 # Example of how to potentially run this file directly (for testing)
 # if __name__ == "__main__":
 #     print("Testing process_query_flow...")
@@ -457,6 +467,10 @@ else:
 # --- Main Execution Block (for running with uvicorn) ---
 # Keep this block if you want to run the server using 'python run.py'
 if __name__ == "__main__":
+    import uvicorn
+    print(colored("Starting FastAPI server...", "cyan"))
+    # Ensure the app object used here is the FastAPI instance 'app'
+    uvicorn.run("run:app", host="0.0.0.0", port=8000, reload=True) # Use reload for development
     import uvicorn
     print(colored("Starting FastAPI server...", "cyan"))
     # Ensure the app object used here is the FastAPI instance 'app'

@@ -1,123 +1,63 @@
 import React from 'react';
-import {
-  Box,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  Typography,
-  Divider,
-  Tooltip,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import ChatIcon from '@mui/icons-material/Chat';
-import CloseIcon from '@mui/icons-material/Close';
-import DeleteIcon from '@mui/icons-material/Delete';
+import '../styles/ChatPage.css';
+import { AddOutlined, ChatBubbleOutlineOutlined, DeleteOutlineOutlined } from '@mui/icons-material';
 
-const drawerWidth = 260;
-
-const Sidebar = ({ open, onClose, onNewChat, chats = [], onDeleteChat, activeChat, onSelectChat }) => {
+const Sidebar = ({ isOpen, chats, activeChat, onNewChat, onSelectChat, onDeleteChat, user }) => {
   return (
-    <Drawer
-      variant="temporary"
-      anchor="left"
-      open={open}
-      onClose={onClose}
-      ModalProps={{
-        keepMounted: true, // Better performance on mobile
-      }}
-      sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
-          backgroundColor: '#202123',
-          color: 'white',
-          transition: 'transform 0.3s ease-in-out',
-        },
-      }}
-    >
-      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" noWrap component="div">
-          Financial Assistant
-        </Typography>
-        <IconButton onClick={onClose} sx={{ display: { sm: 'none' }, color: 'white' }}>
-          <CloseIcon />
-        </IconButton>
-      </Box>
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-      <Box sx={{ p: 2 }}>
-        <ListItemButton
-          onClick={onNewChat}
-          sx={{
-            borderRadius: 1,
-            border: '1px solid rgba(255,255,255,0.2)',
-            '&:hover': {
-              backgroundColor: 'rgba(255,255,255,0.1)',
-            },
-          }}
-        >
-          <ListItemIcon sx={{ color: 'white' }}>
-            <AddIcon />
-          </ListItemIcon>
-          <ListItemText primary="New Chat" sx={{ color: 'white' }} />
-        </ListItemButton>
-      </Box>
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-      <List sx={{ flexGrow: 1, overflow: 'auto' }}>
-        {chats.map((chat, index) => (
-          <ListItem 
+    <div className={`sidebar ${isOpen ? 'open' : ''}`}>
+      <div className="sidebar-header">
+        <h3>AI Chat Assistant</h3>
+      </div>
+      
+      <button className="new-chat-button" onClick={onNewChat}>
+        <AddOutlined style={{ marginRight: '8px' }} />
+        New chat
+      </button>
+      
+      <div className="chats-list">
+        {chats.map(chat => (
+          <div 
             key={chat.id} 
-            disablePadding
-            secondaryAction={
-              <Tooltip title="Delete chat">
-                <IconButton 
-                  edge="end" 
-                  sx={{ color: 'rgba(255,255,255,0.5)' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteChat(chat.id);
-                  }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Tooltip>
-            }
-            sx={{
-              backgroundColor: activeChat === chat.id ? 'rgba(255,255,255,0.1)' : 'transparent',
-            }}
+            className={`chat-item ${activeChat === chat.id ? 'active' : ''}`}
+            onClick={() => onSelectChat(chat.id)}
           >
-            <ListItemButton
-              onClick={() => onSelectChat(chat.id)}
-              sx={{
-                '&:hover': {
-                  backgroundColor: 'rgba(255,255,255,0.1)',
-                },
+            <ChatBubbleOutlineOutlined fontSize="small" />
+            <div className="chat-item-text">{chat.title}</div>
+            <button 
+              className="delete-chat-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteChat(chat.id);
               }}
             >
-              <ListItemIcon sx={{ color: 'white' }}>
-                <ChatIcon />
-              </ListItemIcon>
-              <ListItemText 
-                primary={chat.title || `Chat ${index + 1}`}
-                sx={{ 
-                  color: 'white',
-                  '& .MuiListItemText-primary': {
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }
-                }} 
-              />
-            </ListItemButton>
-          </ListItem>
+              <DeleteOutlineOutlined fontSize="small" />
+            </button>
+          </div>
         ))}
-      </List>
-    </Drawer>
+      </div>
+      
+      <div className="sidebar-footer">
+        <div 
+          className="user-avatar-circle"
+          style={{ 
+            width: '32px', 
+            height: '32px', 
+            borderRadius: '50%', 
+            backgroundColor: '#5436DA',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontWeight: 'bold'
+          }}
+        >
+          {user?.displayName ? user.displayName[0].toUpperCase() : 'U'}
+        </div>
+        <div className="user-name">
+          {user?.displayName || user?.email || 'User'}
+        </div>
+      </div>
+    </div>
   );
 };
 
