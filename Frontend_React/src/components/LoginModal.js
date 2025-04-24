@@ -78,54 +78,99 @@ const LoginModal = ({ isOpen, onClose }) => {
   return (
     <div className={`modal-overlay ${isOpen ? 'active' : ''}`} id="loginModal">
       <div className="login-modal">
-        <button className="close-modal" aria-label="Close modal" onClick={onClose}>&times;</button>
-        <h2>{isLogin ? 'Login to Your Account' : 'Create New Account'}</h2>
+        <button className="close-modal" aria-label="Close modal" onClick={onClose}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+        
+        <div className="modal-header">
+          <div className="modal-logo">
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#6d28d9" />
+                  <stop offset="100%" stopColor="#8b5cf6" />
+                </linearGradient>
+              </defs>
+              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+              <path d="M2 17l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </div>
+          <h2>{isLogin ? 'Login to Your Account' : 'Create New Account'}</h2>
+          <p className="modal-subtitle">Access your AI financial assistant</p>
+        </div>
+        
         {error && <div className="error-message">{error}</div>}
+        
         <form className="login-form" id="loginForm" onSubmit={handleSubmit}>
           {!isLogin && (
+            <div className="form-group">
+              <label htmlFor="name">Full Name</label>
+              <input 
+                type="text" 
+                id="name"
+                className="form-input" 
+                placeholder="Enter your full name" 
+                name="name"
+                required 
+                value={formData.name}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+          
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
             <input 
-              type="text" 
+              type="email"
+              id="email" 
               className="form-input" 
-              placeholder="Full Name" 
-              name="name"
+              placeholder="Enter your email" 
+              name="email"
               required 
-              value={formData.name}
+              value={formData.email}
               onChange={handleChange}
             />
-          )}
-          <input 
-            type="email" 
-            className="form-input" 
-            placeholder="Email" 
-            name="email"
-            required 
-            value={formData.email}
-            onChange={handleChange}
-          />
-          <input 
-            type="password" 
-            className="form-input" 
-            placeholder="Password" 
-            name="password"
-            required 
-            value={formData.password}
-            onChange={handleChange}
-          />
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input 
+              type="password"
+              id="password" 
+              className="form-input" 
+              placeholder="Enter your password" 
+              name="password"
+              required 
+              value={formData.password}
+              onChange={handleChange}
+            />
+          </div>
+          
           {!isLogin && (
-            <input 
-              type="password" 
-              className="form-input" 
-              placeholder="Confirm Password" 
-              name="confirmPassword"
-              required 
-              value={formData.confirmPassword}
-              onChange={handleChange}
-            />
+            <div className="form-group">
+              <label htmlFor="confirmPassword">Confirm Password</label>
+              <input 
+                type="password"
+                id="confirmPassword" 
+                className="form-input" 
+                placeholder="Confirm your password" 
+                name="confirmPassword"
+                required 
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+            </div>
           )}
+          
           <button type="submit" className="login-button">
             {isLogin ? 'Login' : 'Sign Up'}
           </button>
         </form>
+        
         <div className="login-options">
           <p>
             {isLogin ? "Don't have an account? " : "Already have an account? "}
