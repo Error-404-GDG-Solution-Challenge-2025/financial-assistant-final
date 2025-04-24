@@ -144,8 +144,8 @@ a {
 /* Hero section styles */
 .hero-section {
   min-height: 100vh;
-  background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
-  url('https://images.unsplash.com/photo-1551836022-d5d88e9218df?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');
+  background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.8)),
+  url('https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1920&q=80');
   background-size: cover;
   background-position: center;
   color: white;
@@ -172,16 +172,17 @@ a {
   font-weight: 800;
   margin-bottom: 1.5rem;
   line-height: 1.1;
-  background: linear-gradient(90deg, #8b5cf6, #c4b5fd);
+  background: linear-gradient(90deg, #fff, #f8fafc);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 2px 10px rgba(139, 92, 246, 0.3);
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.2);
 }
 
 .hero-subtext {
   font-size: 1.5rem;
   margin-bottom: 2.5rem;
   opacity: 0.9;
+  color: #f8fafc;
 }
 
 .cta-buttons {
@@ -197,15 +198,17 @@ a {
   border-radius: 5px;
   cursor: pointer;
   transition: transform 0.3s ease;
+  font-weight: 600;
 }
 
 .cta-button:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
 }
 
 .cta-button.primary {
-  background-color: #ffc107;
-  color: #000;
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+  color: white;
+  box-shadow: 0 4px 10px rgba(109, 40, 217, 0.3);
 }
 
 .cta-button.secondary {
@@ -226,10 +229,10 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1100;
   opacity: 0;
   visibility: hidden;
   transition: all 0.3s ease;
-  z-index: 1100;
 }
 
 .modal-overlay.active {
@@ -247,16 +250,17 @@ a {
   position: relative;
   transform: translateY(20px);
   opacity: 0;
-  transition: all 0.4s ease;
+  transition: opacity 0.4s ease, transform 0.4s ease;
   border: 1px solid var(--border-color);
 }
 
 .modal-overlay.active .login-modal {
   transform: translateY(0);
+  opacity: 1;
 }
 
 .login-modal h2 {
-  color: #333;
+  color: var(--light-text);
   margin-bottom: 1.5rem;
   font-size: 1.8rem;
   text-align: center;
@@ -343,6 +347,16 @@ a {
   color: #ffb300;
 }
 
+.login-options p {
+  color: var(--light-text);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
 .scroll-indicator {
   position: absolute;
   bottom: 2rem;
@@ -368,7 +382,7 @@ a {
 /* Services Section */
 .services-section {
   padding: 6rem 0;
-  background-color: #f8f9fa;
+  background-color: #fff;
 }
 
 .section-title {
@@ -376,6 +390,18 @@ a {
   font-size: 2.5rem;
   margin-bottom: 3rem;
   color: #333;
+  position: relative;
+}
+
+.section-title:after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  width: 80px;
+  height: 3px;
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+  transform: translateX(-50%);
 }
 
 .services-grid {
@@ -386,20 +412,31 @@ a {
 
 .service-card {
   background: white;
-  padding: 2rem;
+  padding: 2.5rem 2rem;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   text-align: center;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: 1px solid #f0f0f0;
 }
 
 .service-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-10px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
 .service-icon {
   margin-bottom: 1.5rem;
-  color: #ffc107;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 1.5rem;
 }
 
 .service-card h3 {
@@ -452,6 +489,20 @@ a {
 .form-group textarea {
   height: 150px;
   resize: vertical;
+}
+
+.send-message-button {
+  background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  display: block;
+  width: 100%;
 }
 
 /* Footer styles */

@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import './styles/App.css';
 
 // Component imports
 import LoginModal from './components/LoginModal';
 import ChatPage from './components/ChatPage';
+import Navbar from './components/Navbar';
+import Hero from './components/Hero';
+import Services from './components/Services';
+import Contact from './components/Contact';
+import Footer from './components/Footer';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -38,56 +43,66 @@ function App() {
 
   return (
     <Router>
-      <AppContent 
-        openModal={openModal} 
-        isModalOpen={isModalOpen} 
-        closeModal={closeModal}
-        user={user}
-      />
+      <Routes>
+        <Route path="*" element={
+          <AppContent 
+            openModal={openModal} 
+            isModalOpen={isModalOpen} 
+            closeModal={closeModal}
+            user={user}
+          />
+        } />
+      </Routes>
     </Router>
   );
 }
 
 function AppContent({ openModal, isModalOpen, closeModal, user }) {
   const location = useLocation();
-  const isChatPage = location.pathname === "/chat";
-
-  // Remove the unused state and handler function
-  // const [isSidebarOpen, setIsSidebarOpen] = useState(false); // REMOVED
-  // const handleToggleSidebar = () => { // REMOVED
-  //   setIsSidebarOpen(!isSidebarOpen); // REMOVED
-  // }; // REMOVED
+  const isHomePage = location.pathname === "/" || location.pathname === "/login";
 
   return (
     <div className="App">
-      {!isChatPage && <Navbar user={user} openModal={openModal} />}
+      <Navbar user={user} openModal={openModal} />
 
       <main>
         <Routes>
           <Route
             path="/"
+            element={
+              <HomePage openModal={openModal} user={user} />
+            }
+          />
+          <Route
+            path="/chat"
             element={user ? <ChatPage user={user} /> : <Navigate to="/login" />}
           />
           <Route
             path="/login"
             element={
               user ? (
-                <Navigate to="/" />
+                <Navigate to="/chat" />
               ) : (
-                <div className="login-container">
-                  <h1>AI Chat Assistant</h1>
-                  <button onClick={openModal} className="login-button">
-                    Login to continue
-                  </button>
-                </div>
+                <HomePage openModal={openModal} user={user} />
               )
             }
           />
         </Routes>
-        
-        <LoginModal isOpen={isModalOpen} onClose={closeModal} />
-      </div>
-    </Router>
+      </main>
+      
+      {isHomePage && <Footer />}
+      <LoginModal isOpen={isModalOpen} onClose={closeModal} />
+    </div>
+  );
+}
+
+function HomePage({ openModal, user }) {
+  return (
+    <>
+      <Hero openModal={openModal} />
+      <Services />
+      <Contact />
+    </>
   );
 }
 

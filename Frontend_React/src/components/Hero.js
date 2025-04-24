@@ -1,7 +1,6 @@
 // components/Hero.js
 import React from 'react';
-import { Route, Link } from 'react-router-dom';
-import Chat from './Chat';
+
 const Hero = ({ openModal }) => {
   const scrollToNextSection = () => {
     window.scrollBy({
@@ -19,16 +18,8 @@ const Hero = ({ openModal }) => {
         <p className="hero-subtext">
           Your trusted partner in financial growth and success
         </p>
-        {/* <Switch>
-          <Route path="/chat">
-            <Chat />
-          </Route>
-          <Route path="/about">
-            <About />
-          </Route>
-        </Switch> */}
         <div className="cta-buttons">
-          <Link to='/chat'><button className="cta-button primary">Chat Now</button></Link>
+          <button onClick={openModal} className="cta-button primary">Start Investing</button>
           <button className="cta-button secondary">Learn More</button>
         </div>
       </div>

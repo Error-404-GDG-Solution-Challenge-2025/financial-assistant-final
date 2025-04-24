@@ -51,10 +51,10 @@ const Navbar = ({ user, openModal }) => {
         </button>
         <div className={`navbar-menu ${isMenuOpen ? 'active' : ''}`}>
           <Link to="/" className="nav-link" onClick={closeMenu}>Home</Link>
-          <Link to="/services" className="nav-link" onClick={closeMenu}>Services</Link>
+          <a href="#services" className="nav-link" onClick={closeMenu}>Services</a>
           <a href="#stock" className="nav-link" onClick={closeMenu}>Stock</a>
           <a href="#real-estate" className="nav-link" onClick={closeMenu}>Real Estate</a>
-          <Link to="/contact" className="nav-link" onClick={closeMenu}>Contact</Link>
+          <a href="#contact" className="nav-link" onClick={closeMenu}>Contact</a>
           <a href="#alerts" className="nav-link" onClick={closeMenu}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="bell-icon">
               <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
@@ -63,13 +63,13 @@ const Navbar = ({ user, openModal }) => {
           </a>
           {user ? (
             <>
-              <Link to="/chat" className="nav-link" onClick={closeMenu}>Chat</Link>
-              <button onClick={handleLogout} className="btn btn-primary logout-button">
+              <Link to="/chat" className="nav-link chat-link" onClick={closeMenu}>Chat</Link>
+              <button onClick={handleLogout} className="logout-button">
                 Logout
               </button>
             </>
           ) : (
-            <button onClick={openModal} className="nav-link login-button">
+            <button onClick={openModal} className="login-button">
               Login
             </button>
           )}

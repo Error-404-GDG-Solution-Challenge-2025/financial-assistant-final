@@ -1,7 +1,7 @@
 // components/LoginModal.js
 import React, { useState } from 'react';
 import { auth, db } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +14,7 @@ const LoginModal = ({ isOpen, onClose }) => {
     name: ''
   });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -28,26 +29,34 @@ const LoginModal = ({ isOpen, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     try {
       if (isLogin) {
         // Login
-        await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        console.log("Attempting login with:", formData.email);
+        const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        console.log("Login successful:", userCredential.user);
+        
+        setIsLoading(false);
         onClose();
         navigate('/chat');
       } else {
         // Sign up
         if (formData.password !== formData.confirmPassword) {
           setError('Passwords do not match');
+          setIsLoading(false);
           return;
         }
         
         // Create user in Firebase Auth
+        console.log("Attempting signup with:", formData.email);
         const userCredential = await createUserWithEmailAndPassword(
           auth, 
           formData.email, 
           formData.password
         );
+        console.log("Signup successful:", userCredential.user);
 
         // Store additional user data in Firestore
         await setDoc(doc(db, 'users', userCredential.user.uid), {
@@ -57,26 +66,31 @@ const LoginModal = ({ isOpen, onClose }) => {
           lastLogin: new Date().toISOString()
         });
 
+        setIsLoading(false);
         onClose();
         navigate('/chat');
       }
     } catch (error) {
-      setError(error.message);
+      console.error("Authentication error:", error);
+      setError(error.message || 'An error occurred during authentication');
+      setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      onClose();
-      navigate('/');
-    } catch (error) {
-      setError(error.message);
-    }
-  };
+  // Prevent modal from handling clicks if it's not open
+  if (!isOpen) return null;
 
   return (
-    <div className={`modal-overlay ${isOpen ? 'active' : ''}`} id="loginModal">
+    <div 
+      className={`modal-overlay ${isOpen ? 'active' : ''}`} 
+      id="loginModal"
+      onClick={(e) => {
+        // Close modal when clicking outside
+        if (e.target.className.includes('modal-overlay')) {
+          onClose();
+        }
+      }}
+    >
       <div className="login-modal">
         <button className="close-modal" aria-label="Close modal" onClick={onClose}>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,13 +180,13 @@ const LoginModal = ({ isOpen, onClose }) => {
             </div>
           )}
           
-          <button type="submit" className="login-button">
-            {isLogin ? 'Login' : 'Sign Up'}
+          <button type="submit" className="login-button" disabled={isLoading}>
+            {isLoading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
           </button>
         </form>
         
         <div className="login-options">
-          <p>
+          <p style={{ color: 'var(--light-text)' }}>
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button 
               className="link-button" 
