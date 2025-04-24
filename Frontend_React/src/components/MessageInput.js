@@ -37,6 +37,10 @@ const MessageInput = ({ onSendMessage }) => {
     }
   };
 
+  const toggleDeepResearch = () => {
+    setDeepResearch(!deepResearch);
+  };
+
   return (
     <div className="message-input-container">
       <form className="message-form" onSubmit={handleSubmit}>
@@ -66,16 +70,15 @@ const MessageInput = ({ onSendMessage }) => {
         </button>
       </form>
       
-      <div className="deep-research-switch">
-        <label className="switch">
-          <input 
-            type="checkbox" 
-            checked={deepResearch}
-            onChange={() => setDeepResearch(!deepResearch)}
-          />
-          <span className="slider"></span>
-        </label>
-        <span>Deep research mode</span>
+      <div className="deep-research-container">
+        <button 
+          type="button"
+          className={`deep-research-button ${deepResearch ? 'active' : ''}`}
+          onClick={toggleDeepResearch}
+          aria-pressed={deepResearch}
+        >
+          Deep research mode
+        </button>
       </div>
     </div>
   );
