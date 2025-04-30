@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import '../styles/ChatPage.css';
 import { SmartToy as BotIcon, Person as PersonIcon, Search as SearchIcon } from '@mui/icons-material';
+import MarkdownRenderer from './MarkdownRenderer';
 
 const MessageList = ({ messages, isTyping, messagesEndRef, containerRef, onSendMessage }) => {
   // Scroll to bottom when messages update
@@ -72,7 +73,11 @@ const MessageList = ({ messages, isTyping, messagesEndRef, containerRef, onSendM
             {message.role === 'user' ? <PersonIcon /> : <BotIcon />}
           </div>
           <div className="message-content">
-            {message.content}
+            {message.role === 'assistant' ? (
+              <MarkdownRenderer content={message.content} />
+            ) : (
+              message.content
+            )}
           </div>
         </div>
       ))}
@@ -95,4 +100,4 @@ const MessageList = ({ messages, isTyping, messagesEndRef, containerRef, onSendM
   );
 };
 
-export default MessageList; 
+export default MessageList;

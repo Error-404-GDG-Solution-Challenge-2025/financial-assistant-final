@@ -64,14 +64,19 @@ const ChatPage = ({ user }) => {
 
     try {
       console.log("Sending message with deepResearch:", deepResearch);
-      
-      // Call the API
+
       const response = await axios.post('http://localhost:8000/query', {
         query: message,
         deepResearch: deepResearch
       });
 
-      console.log("API Response:", response.data);
+      console.log("API Response Data:", response.data);
+
+      // Modified content extraction
+      const assistantContent = response.data.answer?.answer || 
+                              response.data.answer?.content ||  // New check for content field
+                              JSON.stringify(response.data.answer) || // Fallback for debugging
+                              "I couldn't generate a response.";
 
       // Add AI response to the chat
       setChats(prevChats => prevChats.map(chat =>
@@ -79,7 +84,12 @@ const ChatPage = ({ user }) => {
           ...chat,
           messages: [
             ...chat.messages,
-            { role: 'assistant', content: response.data.answer?.answer || response.data.answer || "I couldn't generate a response." }
+            { 
+              role: 'assistant', 
+              content: assistantContent,
+              // Add raw data for debugging
+              rawData: response.data.answer // For inspection in console
+            }
           ]
         } : chat
       ));
@@ -136,4 +146,4 @@ const ChatPage = ({ user }) => {
   );
 };
 
-export default ChatPage; 
+export default ChatPage;
