@@ -4,7 +4,13 @@ import { Menu as MenuIcon } from '@mui/icons-material';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 
-const ChatArea = ({ chat, isTyping, onSendMessage, onToggleSidebar }) => {
+const ChatArea = ({
+  chat, // Received from ChatPage
+  isTyping,
+  onSendMessage,
+  onToggleSidebar,
+  isSidebarOpen
+}) => {
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -37,4 +43,4 @@ const ChatArea = ({ chat, isTyping, onSendMessage, onToggleSidebar }) => {
   );
 };
 
-export default ChatArea; 
+export default ChatArea;
