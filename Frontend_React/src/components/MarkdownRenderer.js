@@ -13,6 +13,20 @@ function convertEqualsToHr(markdown) {
     .join('\n');
 }
 
+// Helper: Sanitize table markdown
+function sanitizeTableMarkdown(markdown) {
+  return markdown
+    .split('\n')
+    .map(line => {
+      // Remove any problematic table formatting
+      if (line.includes('|')) {
+        return line.replace(/\|\s*\|\s*/g, '| ').trim();
+      }
+      return line;
+    })
+    .join('\n');
+}
+
 // Styled Setext H1
 const SetextH1 = ({ node, ...props }) => (
   <Typography
@@ -166,11 +180,11 @@ const components = {
   hr: ({ node, ...props }) => (
     <Divider
       sx={{
-        my: 4,  // Increased vertical margin
-        borderBottomWidth: '4px',  // Thicker line
-        borderColor: '#fff',  // Pure white color
+        my: 4,
+        borderBottomWidth: '4px',
+        borderColor: '#fff',
         borderStyle: 'solid',
-        opacity: 0.8,  // Slightly transparent
+        opacity: 0.8,
       }}
       {...props}
     />
@@ -197,7 +211,39 @@ const components = {
       />
     </Box>
   ),
+  thead: ({ node, ...props }) => <Box component="thead" {...props} />,
+  tbody: ({ node, ...props }) => <Box component="tbody" {...props} />,
+  tr: ({ node, ...props }) => <Box component="tr" {...props} />,
+  th: ({ node, ...props }) => <Box component="th" {...props} />,
+  td: ({ node, ...props }) => <Box component="td" {...props} />,
 };
+
+// Error boundary component
+class MarkdownErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Markdown rendering error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Typography color="error" sx={{ whiteSpace: 'pre-wrap' }}>
+          {this.props.content}
+        </Typography>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const MarkdownRenderer = ({ content }) => {
   if (typeof content !== 'string') {
@@ -205,12 +251,18 @@ const MarkdownRenderer = ({ content }) => {
     return <Typography color="error">Error: Invalid content type for rendering.</Typography>;
   }
 
-  const processedContent = convertEqualsToHr(content);
+  const processedContent = sanitizeTableMarkdown(convertEqualsToHr(content));
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} skipHtml={false}>
-      {processedContent}
-    </ReactMarkdown>
+    <MarkdownErrorBoundary content={content}>
+      <ReactMarkdown
+        remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
+        components={components}
+        skipHtml={false}
+      >
+        {processedContent}
+      </ReactMarkdown>
+    </MarkdownErrorBoundary>
   );
 };
 

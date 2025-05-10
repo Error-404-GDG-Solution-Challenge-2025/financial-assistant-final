@@ -67,7 +67,7 @@ const ChatPage = ({ user }) => {
 
       const response = await axios.post('http://localhost:8000/query', {
         query: message,
-        deepResearch: deepResearch
+        deep_search: deepResearch
       });
 
       console.log("API Response Data:", response.data);
