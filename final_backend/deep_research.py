@@ -44,6 +44,8 @@ class DeepResearch:
     def _log(self, message, color=None, attrs=None, stream_callback: Optional[Callable[[str], None]] = None):
         """Log a message to console, debug log, and optionally stream via callback."""
         log_entry = message # Store the raw message
+        # basically eikhanei socket connection er through log_entry ta k frontend e pathate hobe
+        # Ebong, jokhon e deep research er kaaj shesh hoy jabe, socket connection ta bondho kore dite hobe
         if color:
             colored_msg = colored(message, color, attrs=attrs)
             print(colored_msg)
@@ -356,7 +358,7 @@ class DeepResearch:
 
         total_calls = self.search_calls_made
         self._log(f"Total search calls made: {total_calls}", "cyan", stream_callback=stream_callback)
-
+        # socket connection ta bondho kore dite hobe
         # Return the full results including the internally collected debug_log
         return {
             "query": query,

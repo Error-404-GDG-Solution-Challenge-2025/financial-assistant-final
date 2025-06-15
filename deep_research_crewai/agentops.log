@@ -1,0 +1,4 @@
+2025-06-15 19:47:27,068 - ERROR - Error instrumenting crewai: No module named 'crewai.utilities.tool_utils'
+2025-06-15 19:47:27,069 - INFO - Session Replay for default trace: https://app.agentops.ai/sessions?trace_id=4b95f55a08d0b9b06b5551bbbc9841f1
+2025-06-15 19:49:05,109 - INFO - Session Replay for default.session trace: https://app.agentops.ai/sessions?trace_id=4b95f55a08d0b9b06b5551bbbc9841f1
+2025-06-15 19:51:18,473 - WARNING - end_session called but no active trace context found.

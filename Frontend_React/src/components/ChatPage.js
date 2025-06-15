@@ -6,7 +6,7 @@ import axios from 'axios';
 
 const ChatPage = ({ user }) => {
   const [chats, setChats] = useState([
-    { id: 1, title: 'New Chat', messages: [] }
+    { id: 1, title: 'New Chat', messages: [] } // eikhan ta firebase theke fetch kora hobe
   ]);
   const [activeChat, setActiveChat] = useState(1);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -19,6 +19,7 @@ const ChatPage = ({ user }) => {
       title: 'New Chat',
       messages: []
     };
+      // ei new chat ta k firebase e save kora hobe
     setChats([...chats, newChat]);
     setActiveChat(newChat.id);
   };
@@ -27,7 +28,7 @@ const ChatPage = ({ user }) => {
   const handleDeleteChat = (chatId) => {
     const newChats = chats.filter(chat => chat.id !== chatId);
     setChats(newChats);
-    
+
     // If the active chat is deleted, set the first available chat as active
     if (activeChat === chatId) {
       setActiveChat(newChats[0]?.id || null);
@@ -73,7 +74,7 @@ const ChatPage = ({ user }) => {
       console.log("API Response Data:", response.data);
 
       // Modified content extraction
-      const assistantContent = response.data.answer?.answer || 
+      const assistantContent = response.data.answer?.answer ||
                               response.data.answer?.content ||  // New check for content field
                               JSON.stringify(response.data.answer) || // Fallback for debugging
                               "I couldn't generate a response.";
@@ -84,8 +85,8 @@ const ChatPage = ({ user }) => {
           ...chat,
           messages: [
             ...chat.messages,
-            { 
-              role: 'assistant', 
+            {
+              role: 'assistant',
               content: assistantContent,
               // Add raw data for debugging
               rawData: response.data.answer // For inspection in console
@@ -95,15 +96,15 @@ const ChatPage = ({ user }) => {
       ));
     } catch (error) {
       console.error("Error calling API:", error);
-      
+
       // Add error message to the chat
       setChats(prevChats => prevChats.map(chat =>
         chat.id === activeChat ? {
           ...chat,
           messages: [
             ...chat.messages,
-            { 
-              role: 'assistant', 
+            {
+              role: 'assistant',
               content: "Sorry, I encountered an error while processing your request. Please try again later."
             }
           ]
@@ -134,7 +135,7 @@ const ChatPage = ({ user }) => {
         onDeleteChat={handleDeleteChat}
         user={user}
       />
-      
+
       <ChatArea
         chat={currentChat}
         isTyping={isTyping}
