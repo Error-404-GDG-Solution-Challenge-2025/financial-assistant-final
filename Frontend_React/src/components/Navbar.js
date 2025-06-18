@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { auth } from '../firebase';
-import { signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';  // Add this import
 import "../styles/Navbar.css"
 
 const Navbar = ({ user, openModal }) => {

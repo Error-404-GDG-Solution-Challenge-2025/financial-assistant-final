@@ -3,40 +3,70 @@ import '../styles/ChatPage.css';
 import Sidebar from './Sidebar';
 import ChatArea from './ChatArea';
 import axios from 'axios';
+import { useEffect } from 'react';
+import { getUserChats, createChat, deleteChat, getChatMessages, addMessage } from '../firebase/chatService';
 
 const ChatPage = ({ user }) => {
-  const [chats, setChats] = useState([
-    { id: 1, title: 'New Chat', messages: [] } // eikhan ta firebase theke fetch kora hobe
-  ]);
-  const [activeChat, setActiveChat] = useState(1);
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
 
-  // Function to handle creating a new chat
-  const handleNewChat = () => {
-    const newChat = {
-      id: Date.now(),
-      title: 'New Chat',
-      messages: []
+  // Load user's chats on mount
+  useEffect(() => {
+    const loadChats = async () => {
+      if (user?.uid) {
+        const userChats = await getUserChats(user.uid);
+        setChats(userChats);
+        if (userChats.length > 0) {
+          setActiveChat(userChats[0].id);
+        }
+      }
     };
-      // ei new chat ta k firebase e save kora hobe
-    setChats([...chats, newChat]);
-    setActiveChat(newChat.id);
-  };
+    loadChats();
+  }, [user]);
 
-  // Function to handle deleting a chat
-  const handleDeleteChat = (chatId) => {
-    const newChats = chats.filter(chat => chat.id !== chatId);
-    setChats(newChats);
+  // Load messages for active chat
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (user?.uid && activeChat) {
+        await getChatMessages(user.uid, activeChat); // Removed unused messages variable
+      }
+    };
+    loadMessages();
+  }, [user, activeChat]);
 
-    // If the active chat is deleted, set the first available chat as active
-    if (activeChat === chatId) {
-      setActiveChat(newChats[0]?.id || null);
+  // Update handleNewChat to use Firestore
+  const handleNewChat = async () => {
+    if (user?.uid) {
+      const newChat = await createChat(user.uid);
+      setChats([...chats, newChat]);
+      setActiveChat(newChat.id);
     }
   };
 
-  // Function to send a message to the AI
+  // Update handleDeleteChat to use Firestore
+  const handleDeleteChat = async (chatId) => {
+    if (user?.uid) {
+      await deleteChat(user.uid, chatId);
+      const newChats = chats.filter(chat => chat.id !== chatId);
+      setChats(newChats);
+      if (activeChat === chatId) {
+        setActiveChat(newChats[0]?.id || null);
+      }
+    }
+  };
+
+  // Update handleSendMessage to use Firestore
   const handleSendMessage = async (message, deepResearch = false) => {
+    if (!user?.uid || !activeChat) return;
+
+    // Add user message
+    await addMessage(user.uid, activeChat, {
+      sender: 'user',
+      content: message
+    });
+
     // Find the current active chat
     const currentChat = chats.find(chat => chat.id === activeChat);
     if (!currentChat) return;

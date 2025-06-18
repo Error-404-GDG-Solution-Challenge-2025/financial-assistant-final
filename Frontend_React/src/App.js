@@ -11,7 +11,7 @@ import Services from './components/Services';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 import { auth } from './firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';  // Add this import
 
 function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
